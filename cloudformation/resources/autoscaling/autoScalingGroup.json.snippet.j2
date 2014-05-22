@@ -1,0 +1,20 @@
+		"{{AutoScalingGroup}}": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Version": "2009-05-15",
+			"Properties": {
+				"AvailabilityZones": { "Ref" : "{{AvailabilityZones}}" },
+				"LaunhConfigurationName": { "Ref": "{{LaunchConfiguration}}" },
+				"LoadBalancerNames" : { "Ref": "{{Elbs}}" },
+				"MinSize": { "Ref" : "{{AsgMinSize}}" },
+				"MaxSize": { "Ref" : "{{AsgMaxSize}}" },
+				"DesiredCapacity": { "Ref" : "{{AsgDesiredCapacity}}" },
+				"Tags": [
+					{ "Key" : "Name", "Value" : "{{name}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "environment", "Value" : { "Ref": "{{Environment}}" }, "PropagateAtLaunch" : "true" },
+					{ "Key" : "product", "Value" : "{{product}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "role", "Value" : "{{role}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "owner", "Value" : { "Ref": "{{Owner}}" }, "PropagateAtLaunch" : "true" }
+				],
+				"VPCZoneIdentifier" : { "Ref" : "{{VpcSubnetIds}}" }
+			}
+		},

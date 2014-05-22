@@ -1,0 +1,8 @@
+					"function error_exit\n",
+					"{\n",
+					"	cfn-signal -e 1 -r \"$1\" '", { "Ref" : "{{WaitHandle}}" }, "'\n",
+					"	exit 1\n",
+					"}\n",
+
+					"# All is well so signal success\n",
+					"cfn-signal -e 0 -r \"{{role}} server setup complete\" '", { "Ref" : "{{WaitHandle}}" }, "'\n",

@@ -1,0 +1,10 @@
+					"function error_exit\n",
+					"{\n",
+					"	cfn-signal -e 1 -r \"$1\" '", { "Ref" : "{{WaitHandle}}" }, "'\n",
+					"	exit 1\n",
+					"}\n",
+
+					"cfn-init --region ", { "Ref" : "AWS::Region" },
+					" -s ", { "Ref" : "AWS::StackId" }, " -r {{LaunchConfiguration}}",
+					" --access-key ", { "Ref" : "{{IamKey}}" },
+					" --secret-key ", {"Fn::GetAtt": ["{{IamKey}}", "SecretAccessKey"]}, " || error_exit 'Failed to run cfn-init'\n",

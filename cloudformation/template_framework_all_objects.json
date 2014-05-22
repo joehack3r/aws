@@ -1,0 +1,21 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+
+	"Description" : "CloudFormation framework template with all objects",
+
+	"Parameters" : {
+
+	},
+
+	"Mappings" : {
+
+	},
+
+	"Resources" : {
+
+	},
+
+	"Outputs" : {
+
+	}
+}

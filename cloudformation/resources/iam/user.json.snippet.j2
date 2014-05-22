@@ -1,0 +1,20 @@
+		"{{IamUser}}" : {
+			"Type" : "AWS::IAM::User",
+			"Properties" : {
+				"Path": "/",
+				"Policies": [{
+					"PolicyName": "root",
+					"PolicyDocument": { 
+						"Statement":[
+
+						]}
+				}]
+			}
+		},
+
+		"{{IamKey}}" : {
+			"Type" : "AWS::IAM::AccessKey",
+			"Properties" : {
+				"UserName" : {"Ref": "{{IamUser}}"}
+			}
+		},

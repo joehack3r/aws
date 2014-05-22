@@ -1,0 +1,36 @@
+		"{{IamRole}}": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"ec2.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				},
+				"Path": "/"
+				"PolicyName": "{{IamPolicyName}}",
+					"PolicyDocument": { 
+						"Statement":[
+
+						]}
+			}
+		},
+
+		"{{IamInstanceProfile}}": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Path": "/",
+				"Roles": [
+					{ "Ref": "{{IamRole}}" }
+				]
+			}
+		},

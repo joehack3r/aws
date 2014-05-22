@@ -1,0 +1,34 @@
+		"AMI" : {
+			"Description" : "AMI Id for the Launch Configuration",
+			"Type" : "String",
+			"AllowedPattern" : "ami-[0-9a-f]{8,8}"
+		},
+		"VpcSecurityGroupIds" : {
+			"Description" : "",
+			"Type" : "CommaDelimitedList"
+		},
+
+		"AvailabilityZones" : {
+			"Description" : "Availability zones for the AutoScalingGroup",
+			"Type" : "CommaDelimitedList"
+		},
+		"Elbs" : {
+			"Description" : "Load balancers to which the instances will be behind",
+			"Type" : "CommaDelimitedList"
+		},
+		"AsgMinSize" : {
+			"Description" : "Min number of instances in AutoScalingGroup",
+			"Type" : "String"
+		},
+		"AsgMaxSize" : {
+			"Description" : "Max number of instances in AutoScalingGroup",
+			"Type" : "String"
+		},
+		"AsgDesiredCapacity" : {
+			"Description" : "Desired number of instances in AutoScalingGroup",
+			"Type" : "String"
+		},
+		"VpcSubnetIds" : {
+			"Description" : "Subnet identifiers of Amazon Virtual Private Cloud that correspond to AvailabilityZones provided",
+			"Type" : "CommaDelimitedList"
+		},

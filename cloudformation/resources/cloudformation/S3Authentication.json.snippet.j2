@@ -1,0 +1,9 @@
+				"AWS::CloudFormation::Authentication" : {
+					"{{S3AccessCreds}}" : {
+						"type" : "S3",
+						"accessKeyId" : { "Ref" : "{{IamKey}}" },
+						"secretKey" : {"Fn::GetAtt": ["{{IamKey}}", "SecretAccessKey"]},
+						"buckets" : [ { "Ref" : "{{bucket}}" } ]
+					}
+				}
+			},

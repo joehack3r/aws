@@ -1,0 +1,38 @@
+		"{{LaunchConfiguration}}": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"IamInstanceProfile": { "Ref": "{{IamInstanceProfile}}" },
+				"ImageId": { "Ref" : "{{AMI}}" },
+				"InstanceType": { "Ref": "{{Ec2InstanceType}}" },
+				"KeyName": { "Ref": "{{KeyName}}" },
+				"InstanceMonitoring": "{{DetailedMonitoring}}",
+				"SecurityGroups": { "Ref": "{{VpcSecurityGroupIds}}" },
+				"UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+					"#!/bin/bash -v\n",
+					"# Script text to be run upon instance first boot cycle\n",
+
+					"\n",
+				]]}}
+			}
+		},
+
+		"{{AutoScalingGroup}}": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Version": "2009-05-15",
+			"Properties": {
+				"AvailabilityZones": { "Ref" : "{{AvailabilityZones}}" },
+				"LaunchConfigurationName": { "Ref": "{{LaunchConfiguration}}" },
+				"LoadBalancerNames" : { "Ref": "{{Elbs}}" },
+				"MinSize": { "Ref" : "{{AsgMinSize}}" },
+				"MaxSize": { "Ref" : "{{AsgMaxSize}}" },
+				"DesiredCapacity": { "Ref" : "{{AsgDesiredCapacity}}" },
+				"Tags": [
+					{ "Key" : "Name", "Value" : "{{name}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "environment", "Value" : { "Ref": "{{Environment}}" }, "PropagateAtLaunch" : "true" },
+					{ "Key" : "product", "Value" : "{{product}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "role", "Value" : "{{role}}", "PropagateAtLaunch" : "true" },
+					{ "Key" : "owner", "Value" : "{{owner}}", "PropagateAtLaunch" : "true" }
+				],
+				"VPCZoneIdentifier" : { "Ref" : "{{VpcSubnetIds}}" }
+			}
+		},
