@@ -1,0 +1,276 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Quasi Default VPC",
+
+  "Parameters" : {
+    "Environment" : {
+      "Description" : "Environment, preferably unique.  No spaces allowed.  For example, development1, test2, or production3.",
+      "Type" : "String",
+      "AllowedPattern" : "[-_a-zA-Z0-9]*",
+      "Default": "development"
+    },
+
+    "VpcCidr" : {
+      "Description" : " The IP address range, in CIDR format, that the VPC will use.",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "172.31.0.0/16"
+    },
+
+    "PublicSubnetA0Cidr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone A public subnet.",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "172.31.0.0/20"
+    },
+
+    "PublicSubnetB0Cidr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone B public subnet.",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "172.31.16.0/20"
+    },
+
+    "PublicSubnetC0Cidr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone C public subnet.",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "172.31.32.0/20"
+    }
+  },
+
+  "Resources" : {
+
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "VpcCidr" },
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "VPC"                    },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ]
+      }
+    },
+
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "InternetGateway"        },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "InternetGatewayId" : { "Ref" : "InternetGateway" },
+         "VpcId" : { "Ref" : "VPC" }
+       }
+    },
+
+    "PublicRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicRouteTable"       },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ],
+        "VpcId" : {"Ref" : "VPC"}
+      }
+    },
+
+    "PublicRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    },
+
+    "PublicNetworkAcl" : {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicNetworkAcl"       },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ]
+      }
+    },
+
+
+    "NetworkAclEgress": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "CidrBlock": "0.0.0.0/0",
+        "Egress": true,
+        "Protocol": "-1",
+        "RuleAction": "allow",
+        "RuleNumber": "100",
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+    "NetworkAclIngress": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "CidrBlock": "0.0.0.0/0",
+        "Protocol": "-1",
+        "RuleAction": "allow",
+        "RuleNumber": "100",
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+
+    "PublicSubnetA0" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "AvailabilityZone" : "us-east-1a",
+        "CidrBlock" : { "Ref" : "PublicSubnetA0Cidr" },
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicSubnet"           },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ],
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+    "PublicSubnetA0RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "SubnetId" : { "Ref" : "PublicSubnetA0" }
+      }
+    },
+
+    "PublicSubnetA0NetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+        "SubnetId" : { "Ref" : "PublicSubnetA0" }
+      }
+    },
+
+    "PublicSubnetB0" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "AvailabilityZone" : "us-east-1b",
+        "CidrBlock" : { "Ref" : "PublicSubnetB0Cidr" },
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicSubnet"           },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ],
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+    "PublicSubnetB0RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "SubnetId" : { "Ref" : "PublicSubnetB0" }
+      }
+    },
+
+    "PublicSubnetB0NetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+        "SubnetId" : { "Ref" : "PublicSubnetB0" }
+      }
+    },
+
+    "PublicSubnetC0" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "AvailabilityZone" : "us-east-1c",
+        "CidrBlock" : { "Ref" : "PublicSubnetC0Cidr" },
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicSubnet"           },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ],
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+    "PublicSubnetC0RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "SubnetId" : { "Ref" : "PublicSubnetC0" }
+      }
+    },
+
+    "PublicSubnetC0NetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+        "SubnetId" : { "Ref" : "PublicSubnetC0" }
+      }
+    }
+
+  },
+
+  "Outputs" : {
+    "VpcId" : {
+      "Value" : { "Ref" : "VPC" },
+      "Description" : "VPC ID"
+    },
+    "PublicSubnetA0" : {
+      "Value" : { "Ref" : "PublicSubnetA0" },
+      "Description" : "ID of the public subnet"
+    },
+    "PublicSubnetB0" : {
+      "Value" : { "Ref" : "PublicSubnetB0" },
+      "Description" : "ID of the public subnet"
+    },
+    "PublicSubnetC0" : {
+      "Value" : { "Ref" : "PublicSubnetC0" },
+      "Description" : "ID of the public subnet"
+    },
+    "BlankSpace" : {
+      "Value" : "Empty space",
+      "Description" : "Empty space so easier to copy other outputs."
+    }
+  }
+}
