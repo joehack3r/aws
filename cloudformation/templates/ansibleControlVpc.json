@@ -189,6 +189,31 @@
 								{ "Fn::Join" : ["", [ "arn:aws:s3:::", { "Ref" : "BucketName" } ]]},
 								{ "Fn::Join" : ["", [ "arn:aws:s3:::", { "Ref" : "BucketName" }, "/*" ]]}
 							]
+						},{
+							"Action": [
+								"autoscaling:CreateAutoScalingGroup",
+								"autoscaling:CreateLaunchConfiguration",
+								"autoscaling:CreateOrUpdateTags",
+								"autoscaling:DescribeLaunchConfigurations",
+								"autoscaling:DescribeScalingActivities",
+								"autoscaling:UpdateAutoScalingGroup",
+								"ec2:CreateImage",
+								"ec2:CreateTags",
+								"ec2:DescribeImages",
+								"ec2:DescribeInstances",
+								"ec2:DescribeSecurityGroups",
+								"ec2:DescribeTags",
+								"ec2:RunInstances",
+								"ec2:TerminateInstances",
+								"cloudformation:CreateStack",
+								"cloudformation:DescribeStackEvents",
+								"cloudformation:DescribeStacks",
+								"cloudformation:UpdateStack"
+							],
+							"Effect": "Allow",
+							"Resource":[
+								"*"
+							]
 						}
 					]
 				},
