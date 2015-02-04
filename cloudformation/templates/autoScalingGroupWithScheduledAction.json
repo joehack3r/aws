@@ -1,0 +1,146 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AutoScaling Group with ScheduledActions. This template is used to create an AutoScaling Group that will scale up and scale down according to a schedule.",
+	"Parameters": {
+		"ImageId": {
+			"Description": "Amazon Machine Image",
+			"Type": "String"
+		},
+		"InstanceType": {
+			"Description": "EC2 instance type",
+			"Type": "String",
+			"ConstraintDescription": "must be a valid EC2 instance type."
+		},
+		"VPCSubnets": {
+			"Description": "List of VPC subnets",
+			"Type": "CommaDelimitedList"
+		}
+	},
+	"Resources": {
+		"rootRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"ec2.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				},
+				"Path": "/"
+			}
+		},
+		"rootPolicy": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "root",
+				"PolicyDocument": {
+					"Statement": [
+						{
+							"Effect": "Deny",
+							"Action": "*",
+							"Resource": "*"
+						}
+					]
+				},
+				"Roles": [
+					{
+						"Ref": "rootRole"
+					}
+				]
+			}
+		},
+		"rootInstanceProfile": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Path": "/",
+				"Roles": [
+					{
+						"Ref": "rootRole"
+					}
+				]
+			}
+		},
+		"myLaunchConfiguration": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"ImageId": { "Ref" : "ImageId" },
+				"InstanceType": { "Ref": "InstanceType" },
+				"IamInstanceProfile": { "Ref": "rootInstanceProfile" }
+			}
+		},
+		"myAutoScalingGroup": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Version": "2009-05-15",
+			"Properties": {
+				"AvailabilityZones": { "Fn::GetAZs" : { "Ref" : "AWS::Region" } },
+				"LaunchConfigurationName": { "Ref": "myLaunchConfiguration" },
+				"MinSize": "0",
+				"MaxSize": "1",
+				"Tags" : [{
+						"Key" : "Name",
+						"Value" : "",
+						"PropagateAtLaunch" : "true"
+					},{
+						"Key" : "owner",
+						"Value" : "",
+						"PropagateAtLaunch" : "true"
+					},{
+						"Key" : "environment",
+						"Value" : "dev",
+						"PropagateAtLaunch" : "true"
+					}
+				],
+				"VPCZoneIdentifier" : { "Ref" : "VPCSubnets" }
+			}
+		},
+		"myAutoScalingGroupTurnOn": {
+			"Type": "AWS::AutoScaling::ScheduledAction",
+			"Properties": {
+				"AutoScalingGroupName": { "Ref": "myAutoScalingGroup" },
+				"MinSize": "0",
+				"MaxSize": "1",
+				"Recurrence": "0 0 * * 0"
+			}
+		},
+		"myAutoScalingGroupScaleUp": {
+			"Type": "AWS::AutoScaling::ScheduledAction",
+			"Properties": {
+				"AutoScalingGroupName": { "Ref": "myAutoScalingGroup" },
+				"DesiredCapacity" : "1",
+				"Recurrence": "1 0 * * 0"
+			}
+		},
+		"myAutoScalingGroupScaleDown": {
+			"Type": "AWS::AutoScaling::ScheduledAction",
+			"Properties": {
+				"AutoScalingGroupName": { "Ref": "myAutoScalingGroup" },
+				"DesiredCapacity" : "0",
+				"Recurrence": "55 0 * * 0"
+			}
+		},
+		"myAutoScalingGroupTurnOff": {
+			"Type": "AWS::AutoScaling::ScheduledAction",
+			"Properties": {
+				"AutoScalingGroupName": { "Ref": "myAutoScalingGroup" },
+				"MinSize": "0",
+				"MaxSize": "0",
+				"Recurrence": "0 1 * * 0"
+			}
+		}
+	},
+	"Outputs" : {
+		"BlankSpace" : {
+			"Value" : "This output intentionally left blank."
+		}
+	}
+
+}
