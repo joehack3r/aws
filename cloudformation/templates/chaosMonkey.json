@@ -1,0 +1,413 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Chaos Monkey. This template is designed to be used in a Default VPC. Changes are likely necessary to run in another VPC.",
+
+  "Parameters" : {
+    "ChaosMonkeyLeashed" : {
+      "Description" : "Should Chaos Monkey be leashed? If true, will not terminate any instances.",
+      "Type" : "String",
+      "AllowedValues" : ["true", "false"],
+      "Default" : "true"
+    },
+    "ChaosMonkeyOptOutBehavior" : {
+      "Description" : "Should Chaos Monkey use the Opt-Out behavior model?",
+      "Type" : "String",
+      "AllowedValues" : ["true", "false"],
+      "Default" : "false"
+    },
+    "ChaosMonkeyAppendProperties" : {
+      "Description" : "Text to append to chaos.properties. Differents lines should be separated by commas. Primary intent is to be used for opt-in/opt-out AutoScaling Groups.",
+      "Type" : "String"
+    },
+    "InstanceType" : {
+      "Description" : "Chaos Monkey EC2 instance type.",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t1.micro", "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "g2.2xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"],
+      "ConstraintDescription" : "Must be a valid EC2 instance type."
+    },
+    "KeyName" : {
+      "Description" : "The EC2 Key Pair to allow SSH access to the instances",
+      "Type" : "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+    "VpcId" : {
+      "Description" : "Physical ID of the VPC.",
+      "Type" : "AWS::EC2::VPC::Id",
+      "AllowedPattern" : "vpc-[0-9a-f]{8,8}"
+    }
+
+  },
+
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t1.micro"    : { "Arch" : "PV64"   },
+      "t2.micro"    : { "Arch" : "HVM64"  },
+      "t2.small"    : { "Arch" : "HVM64"  },
+      "t2.medium"   : { "Arch" : "HVM64"  },
+      "m1.small"    : { "Arch" : "PV64"   },
+      "m1.medium"   : { "Arch" : "PV64"   },
+      "m1.large"    : { "Arch" : "PV64"   },
+      "m1.xlarge"   : { "Arch" : "PV64"   },
+      "m2.xlarge"   : { "Arch" : "PV64"   },
+      "m2.2xlarge"  : { "Arch" : "PV64"   },
+      "m2.4xlarge"  : { "Arch" : "PV64"   },
+      "m3.medium"   : { "Arch" : "HVM64"  },
+      "m3.large"    : { "Arch" : "HVM64"  },
+      "m3.xlarge"   : { "Arch" : "HVM64"  },
+      "m3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c1.medium"   : { "Arch" : "PV64"   },
+      "c1.xlarge"   : { "Arch" : "PV64"   },
+      "c3.large"    : { "Arch" : "HVM64"  },
+      "c3.xlarge"   : { "Arch" : "HVM64"  },
+      "c3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c3.4xlarge"  : { "Arch" : "HVM64"  },
+      "c3.8xlarge"  : { "Arch" : "HVM64"  },
+      "c4.large"    : { "Arch" : "HVM64"  },
+      "c4.xlarge"   : { "Arch" : "HVM64"  },
+      "c4.2xlarge"  : { "Arch" : "HVM64"  },
+      "c4.4xlarge"  : { "Arch" : "HVM64"  },
+      "c4.8xlarge"  : { "Arch" : "HVM64"  },
+      "g2.2xlarge"  : { "Arch" : "HVMG2"  },
+      "r3.large"    : { "Arch" : "HVM64"  },
+      "r3.xlarge"   : { "Arch" : "HVM64"  },
+      "r3.2xlarge"  : { "Arch" : "HVM64"  },
+      "r3.4xlarge"  : { "Arch" : "HVM64"  },
+      "r3.8xlarge"  : { "Arch" : "HVM64"  },
+      "i2.xlarge"   : { "Arch" : "HVM64"  },
+      "i2.2xlarge"  : { "Arch" : "HVM64"  },
+      "i2.4xlarge"  : { "Arch" : "HVM64"  },
+      "i2.8xlarge"  : { "Arch" : "HVM64"  },
+      "hi1.4xlarge" : { "Arch" : "HVM64"  },
+      "hs1.8xlarge" : { "Arch" : "HVM64"  },
+      "cr1.8xlarge" : { "Arch" : "HVM64"  },
+      "cc2.8xlarge" : { "Arch" : "HVM64"  }
+    },
+    "AWSRegionArch2AMI" : {
+      "us-east-1"        : {"PV64" : "ami-4f3fb924", "HVM64" : "ami-453fb92e", "HVMG2" : "ami-453fb92e"},
+      "us-west-2"        : {"PV64" : "ami-21150611", "HVM64" : "ami-2f15061f", "HVMG2" : "ami-2f15061f"},
+      "us-west-1"        : {"PV64" : "ami-f329d2b7", "HVM64" : "ami-fb29d2bf", "HVMG2" : "ami-fb29d2bf"}
+    }
+  },
+
+  "Resources" : {
+
+    "ChaosMonkeySecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Chaos Monkey security group.",
+        "SecurityGroupEgress" : [{
+          "IpProtocol" : "tcp",
+          "FromPort" : "80",
+          "ToPort" : "80",
+          "CidrIp" : "0.0.0.0/0"
+          },{
+          "IpProtocol" : "tcp",
+          "FromPort" : "443",
+          "ToPort" : "443",
+          "CidrIp" : "0.0.0.0/0"
+        }],
+        "VpcId" : { "Ref" : "VpcId" }
+      }
+    },
+
+    "ChaosMonkeyRole" : {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "ec2.amazonaws.com" ]
+            },
+            "Action": [ "sts:AssumeRole" ]
+          } ]
+        },
+        "Path": "/",
+        "Policies" : [{
+          "PolicyName": "chaos-monkey-policy",
+          "PolicyDocument": {
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [ 
+                "sdb:ListDomains"
+              ],
+              "Resource": "arn:aws:sdb:*:*:domain/*"
+              },{
+              "Effect": "Allow",
+              "Action": [ 
+                "sdb:BatchDeleteAttributes",
+                "sdb:BatchPutAttributes",
+                "sdb:GetAttributes",
+                "sdb:PutAttributes",
+                "sdb:CreateDomain",
+                "sdb:Select"
+              ],
+              "Resource": "arn:aws:sdb:*:*:domain/SIMIAN_ARMY"
+              },{
+              "Effect": "Allow",
+              "Action": [ 
+                "autoscaling:DescribeAutoScalingGroups",
+                "autoscaling:DescribeAutoScalingInstances",
+                "ec2:TerminateInstances",
+                "ses:SendEmail"
+              ],
+              "Resource": "*"
+            }]
+          }
+        }]
+      }
+    },
+
+    "ChaosMonkeyInstanceProfile" : { 
+        "Type": "AWS::IAM::InstanceProfile",
+        "Properties": {
+            "Path": "/",
+            "Roles": [ { "Ref": "ChaosMonkeyRole" } ]
+        }
+    },
+
+    "LaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "Comment" : "Install Nginx and serve a single static file.",
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "full_install" : [ "install_cfn", "install_os_packages", "install_app", "configure_app", "run_app", "verify_instance_health" ],
+            "app_update" : [ "configure_app", "run_app", "verify_instance_health" ]
+          },
+
+          "install_cfn" : {
+            "files" : {
+              "/etc/cfn/cfn-hup.conf" : {
+                "content" : { "Fn::Join" : ["", [
+                  "[main]\n",
+                  "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                  "region=", { "Ref" : "AWS::Region" }, "\n",
+                  "interval=1\n"
+                ]]},
+                "mode"    : "000400",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                "content": { "Fn::Join" : ["", [
+                  "[cfn-auto-reloader-hook]\n",
+                  "triggers=post.update\n",
+                  "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                  "action=/usr/local/bin/cfn-init -v ",
+                  "         --stack ", { "Ref" : "AWS::StackName" },
+                  "         --resource LaunchConfig ",
+                  "         --configsets app_update ",
+                  "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                  "runas=root\n"
+                ]]}
+              }
+            },
+            "commands" : {
+              "start-cfn-hup" : {
+                "command" : "/usr/local/bin/cfn-hup -c /etc/cfn/ -v"
+              }
+            }
+          },
+
+          "install_os_packages" : {
+            "packages" : {
+              "apt" : {
+                "git" : [],
+                "python-pip" : [],
+                "openjdk-7-jdk" : []
+              }
+            }
+          },
+
+          "install_app" : {
+            "commands" : {
+              "1-cloneRepo" : {
+                "command" : "git clone https://github.com/Netflix/SimianArmy.git /etc/simianarmy"
+              },
+              "2-build" : {
+                "command" : "./gradlew build",
+                "cwd" : "/etc/simianarmy/"
+              }
+            }
+          },
+
+          "configure_app" : {
+            "files" : {
+              "/etc/simianarmy/src/main/resources/client.properties" : {
+                "content" : { "Fn::Join" : ["", [
+                  "simianarmy.client.aws.region = ", { "Ref" : "AWS::Region" }, "\n",
+                  "simianarmy.client.aws.accountName = default\n",
+                  "\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/etc/simianarmy/src/main/resources/chaos.properties" : {
+                "content" : { "Fn::Join" : ["", [
+                  "# The file contains the properties for Chaos Monkey.\n",
+                  "# see documentation at:\n",
+                  "# https://github.com/Netflix/SimianArmy/wiki/Configuration\n",
+                  "\n",
+                  "simianarmy.chaos.enabled = true\n",
+                  "simianarmy.chaos.leashed = ", { "Ref" : "ChaosMonkeyLeashed"}, "\n",
+                  "# set to \"false\" for Opt-In behavior, \"true\" for Opt-Out behavior\n",
+                  "simianarmy.chaos.ASG.enabled = ", { "Ref" : "ChaosMonkeyOptOutBehavior"}, "\n",
+                  "\n",
+                  "simianarmy.chaos.ASG.probability = 1.0\n",
+                  "simianarmy.chaos.ASG.maxTerminationsPerDay = 1.0\n",
+                  "\n",
+                  "simianarmy.chaos.shutdowninstance.enabled = true\n",
+                  "simianarmy.chaos.blockallnetworktraffic.enabled = false\n",
+                  "simianarmy.chaos.burncpu.enabled = false\n",
+                  "simianarmy.chaos.killprocesses.enabled = false\n",
+                  "simianarmy.chaos.nullroute.enabled = false\n",
+                  "simianarmy.chaos.failapi.enabled = false\n",
+                  "simianarmy.chaos.faildns.enabled = false\n",
+                  "simianarmy.chaos.faildynamodb.enabled = false\n",
+                  "simianarmy.chaos.fails3.enabled = false\n",
+                  "simianarmy.chaos.networkcorruption.enabled = false\n",
+                  "simianarmy.chaos.networklatency.enabled = false\n",
+                  "simianarmy.chaos.networkloss.enabled = false\n",
+                  "\n",
+                  "simianarmy.chaos.detachvolumes.enabled = false\n",
+                  "simianarmy.chaos.burnio.enabled = false\n",
+                  "simianarmy.chaos.filldisk.enabled = false\n",
+                  "simianarmy.chaos.burnmoney = false\n",
+                  "\n",
+                  "simianarmy.chaos.mandatoryTermination.enabled = false\n",
+                  "simianarmy.chaos.mandatoryTermination.windowInDays = 32\n",
+                  "simianarmy.chaos.mandatoryTermination.defaultProbability = 0.5\n",
+                  "\n",
+                  "\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/etc/simianarmy/src/main/resources/chaos.properties.toAppend" : {
+                "content" : { "Fn::Join" : ["", [
+                  { "Ref" : "ChaosMonkeyAppendProperties" }, "\n",
+                  "\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/etc/simianarmy/src/main/resources/simianarmy.properties" : {
+                "content" : { "Fn::Join" : ["", [
+                  "# see documentation at:\n",
+                  "# https://github.com/Netflix/SimianArmy/wiki/Configuration\n",
+                  "\n",
+                  "simianarmy.recorder.sdb.domain = SIMIAN_ARMY\n",
+                  "simianarmy.scheduler.frequency = 1\n",
+                  "simianarmy.scheduler.frequencyUnit = HOURS\n",
+                  "simianarmy.scheduler.threads = 1\n",
+                  "simianarmy.calendar.openHour = 9\n",
+                  "simianarmy.calendar.closeHour = 15\n",
+                  "simianarmy.calendar.timezone = America/Los_Angeles\n",
+                  "\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "root",
+                "group"   : "root"
+              }
+            },
+            "commands" : {
+              "1-append-properties" : {
+                "command" : "sed s/,/\\\\n/g chaos.properties.toAppend >> chaos.properties",
+                "cwd" : "/etc/simianarmy/src/main/resources",
+                "ignoreErrors" : "true"
+              }
+            }
+          },
+
+          "run_app" : {
+            "commands" : {
+              "1-pkill" : {
+                "command" : "pkill -f simianarmy",
+                "ignoreErrors" : "true"
+              },
+              "2-runApp" : {
+                "command" : "nohup ./gradlew jettyRun >> /var/log/chaosmonkey.log 2>&1 &",
+                "cwd" : "/etc/simianarmy/"
+              }
+            }
+          },
+
+          "verify_instance_health" : {
+            "commands" : {
+              "HealthCheck" : {
+                "command" : { "Fn::Join" : ["", [ 
+                  "until $(curl --output /dev/null --silent --head --fail http://localhost:8080/simianarmy/); do ",
+                  "  sleep 10; ",
+                  "done"
+                ]]}
+              }
+            }
+          }
+        }
+      },
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                        { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "SecurityGroups" : [ { "Ref" : "ChaosMonkeySecurityGroup" } ],
+        "IamInstanceProfile" : { "Ref" : "ChaosMonkeyInstanceProfile" },
+        "InstanceType" : { "Ref" : "InstanceType" },
+
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -xe\n",
+
+          "# Log User Data Output on EC2 Instances\n",
+          "# http://alestic.com/2010/12/ec2-user-data-output\n",
+          "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+
+           "apt-get update\n",
+           "apt-get upgrade -y\n",
+           "apt-get install -y python-setuptools\n",
+           "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+
+           "/usr/local/bin/cfn-init -v ",
+           "         --stack ", { "Ref" : "AWS::StackName" },
+           "         --resource LaunchConfig ",
+           "         --configsets full_install",
+           "         --region ", { "Ref" : "AWS::Region" }, "\n",
+
+           "/usr/local/bin/cfn-signal -e $? ",
+           "         --stack ", { "Ref" : "AWS::StackName" },
+           "         --resource ChaosMonkeyGroup ",
+           "         --region ", { "Ref" : "AWS::Region" }, "\n"
+        ]]}}
+      }
+    },
+
+    "ChaosMonkeyGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "CreationPolicy" : {
+        "ResourceSignal" : {
+          "Timeout" : "PT15M",
+          "Count"   : "1"
+        }
+      },
+      "UpdatePolicy" : {
+        "AutoScalingRollingUpdate" : {
+          "MaxBatchSize" : "1",
+          "MinInstancesInService" : "0",
+          "PauseTime" : "PT15M",
+          "WaitOnResourceSignals": "true"
+        }
+      },
+      "Properties": {
+        "AvailabilityZones": { "Fn::GetAZs": "" },
+        "LaunchConfigurationName": { "Ref": "LaunchConfig" },
+        "MinSize": "1",
+        "MaxSize": "1"
+      }
+    }
+  }
+}
