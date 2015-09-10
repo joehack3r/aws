@@ -10,11 +10,11 @@
       "AllowedValues" : ["true", "false"],
       "Default" : "true"
     },
-    "ChaosMonkeyOptOutBehavior" : {
-      "Description" : "Should Chaos Monkey use the Opt-Out behavior model?",
+    "ChaosMonkeyOptInOptOutBehaviorModel" : {
+      "Description" : "Should Chaos Monkey use the Opt-In (false) or Opt-Out (true) behavior model?",
       "Type" : "String",
-      "AllowedValues" : ["true", "false"],
-      "Default" : "false"
+      "AllowedValues" : ["opt-in", "opt-out"],
+      "Default" : "opt-in"
     },
     "ChaosMonkeyAppendProperties" : {
       "Description" : "Text to append to chaos.properties. Differents lines should be separated by commas. Primary intent is to be used for opt-in/opt-out AutoScaling Groups.",
@@ -39,6 +39,11 @@
     }
 
   },
+
+  "Conditions" : {
+    "AsgEnabled" : { "Fn::Equals": [{"Ref" : "ChaosMonkeyOptInOptOutBehaviorModel"}, "opt-out"]}
+  },
+
 
   "Mappings" : {
     "AWSInstanceType2Arch" : {
@@ -256,7 +261,7 @@
                   "simianarmy.chaos.enabled = true\n",
                   "simianarmy.chaos.leashed = ", { "Ref" : "ChaosMonkeyLeashed"}, "\n",
                   "# set to \"false\" for Opt-In behavior, \"true\" for Opt-Out behavior\n",
-                  "simianarmy.chaos.ASG.enabled = ", { "Ref" : "ChaosMonkeyOptOutBehavior"}, "\n",
+                  "simianarmy.chaos.ASG.enabled = ", { "Fn::If" : ["AsgEnabled", "true", "false"] }, "\n",
                   "\n",
                   "simianarmy.chaos.ASG.probability = 1.0\n",
                   "simianarmy.chaos.ASG.maxTerminationsPerDay = 1.0\n",
