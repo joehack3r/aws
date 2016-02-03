@@ -1,0 +1,43 @@
+{
+    "Name": "Reference JSON template: Create, Read, Update, and Delete CloudFormation Stacks",
+
+    "Parameters": {
+        "Files" : [
+            {
+                "SampleParameterFile" : {
+                    "Properties" : {
+                        "Path" : "file:///path/to/aws/cloudformation/parameters/file.json"
+                    }
+                }
+            }
+        ],
+        "ExistingStacks" : [
+            {
+                "Foo" : "Read the outputs from the stack with id Foo"
+            }
+        ],
+        "KeyValuePairs" : [
+            {
+                "ParameterKey" : "foo",
+                "ParameterValue" : "bar"
+            }
+        ]
+    },
+
+    "StacksToCreateOrUpdate" : [
+        {
+            "VPC-Dev" : {
+                "Properties" : {
+                    "Template" : "file:///path/to/aws/cloudformation/templates/file.json",
+                    "AddOutputsToParameters" : true
+                }
+            }
+        }
+    ],
+    
+    "StacksToDelete" : [
+        {
+            "Bar" : "Delete the stack with id Bar"
+        }
+    ]
+}

@@ -1,0 +1,428 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "VPC with two public subnets.",
+
+    "Parameters" : {
+        "Environment" : {
+            "Description" : "Environment name - no spaces allowed.",
+            "Type" : "String",
+            "AllowedPattern" : "[-_a-zA-Z0-9]*"
+        },
+
+        "HomeNetwork0CIDR" : {
+            "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+            "Default" : "255.255.255.255/32"
+        },
+
+        "HomeNetwork1CIDR" : {
+            "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+
+        "OwnerTag" : {
+            "Description" : "Owner Tag. Preferably email username or email address.",
+            "Type" : "String",
+            "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
+        },
+
+        "PublicSubnet0Cidr" : {
+            "Description" : "The CIDR block for the first public subnet.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+
+        "PublicSubnet1Cidr" : {
+            "Description" : "The CIDR block for the second public subnet.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+
+        "VpcCidr" : {
+            "Description" : "The CIDR block for the VPC.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        }
+    },
+
+    "Resources" : {
+
+        "VPC" : {
+            "Type" : "AWS::EC2::VPC",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "VpcCidr" },
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "vpc"                    },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "InternetGateway" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "InternetGateway"        },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "AttachGateway" : {
+             "Type" : "AWS::EC2::VPCGatewayAttachment",
+             "Properties" : {
+                 "InternetGatewayId" : { "Ref" : "InternetGateway" },
+                 "VpcId" : { "Ref" : "VPC" }
+             }
+        },
+
+        "PublicRouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PublicRouteTable"       },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : {"Ref" : "VPC"}
+            }
+        },
+
+        "PublicRoute" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "GatewayId" : { "Ref" : "InternetGateway" },
+                "RouteTableId" : { "Ref" : "PublicRouteTable" }
+            }
+        },
+
+        "PublicNetworkAcl" : {
+            "Type" : "AWS::EC2::NetworkAcl",
+            "Properties" : {
+                "VpcId" : {"Ref" : "VPC"},
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PublicNetworkAcl"       },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "PublicInboundHTTPNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "80", "To" : "80"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "100"
+            }
+        },
+
+        "PublicInboundHTTPSNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "443", "To" : "443"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "110"
+            }
+        },
+
+        "PublicInboundICMPNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "Protocol" : "1",
+                "Icmp": {
+                    "Type": "3",
+                    "Code": "4"
+                },
+                "RuleAction" : "allow",
+                "RuleNumber" : "120"
+            }
+        },
+
+        "PublicInboundBastionHostNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "VpcCidr" },
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "22", "To" : "22"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "200"
+            }
+        },
+
+        "PublicInboundHomeNetwork0NetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "HomeNetwork0CIDR" },
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "-1",
+                "RuleAction" : "allow",
+                "RuleNumber" : "300"
+            }
+        },
+
+        "PublicInboundHomeNetwork1NetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "HomeNetwork1CIDR" },
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "-1",
+                "RuleAction" : "allow",
+                "RuleNumber" : "310"
+            }
+        },
+
+        "PublicInboundDynamicPortsNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "1024", "To" : "65535"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "1000"
+            }
+        },
+
+        "PublicOutboundHTTPNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "80", "To" : "80"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "100"
+            }
+        },
+
+        "PublicOutboundHTTPSNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "443", "To" : "443"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "110"
+            }
+        },
+
+        "PublicOutboundICMPNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "Protocol" : "1",
+                "Icmp": {
+                    "Type": "3",
+                    "Code": "4"
+                },
+                "RuleAction" : "allow",
+                "RuleNumber" : "120"
+            }
+        },
+
+        "PublicOutboundSMTPSSLNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "465", "To" : "465"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "130"
+            }
+        },
+
+        "PublicOutboundBastionHostNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "VpcCidr" },
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "22", "To" : "22"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "200"
+            }
+        },
+
+        "PublicOutBoundHomeNetwork0NetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "HomeNetwork0CIDR" },
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "-1",
+                "RuleAction" : "allow",
+                "RuleNumber" : "300"
+            }
+        },
+
+        "PublicOutBoundHomeNetwork1NetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : { "Ref" : "HomeNetwork1CIDR" },
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "-1",
+                "RuleAction" : "allow",
+                "RuleNumber" : "310"
+            }
+        },
+
+        "PublicOutBoundDynamicPortNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+                "PortRange" : {"From" : "1024", "To" : "65535"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "1000"
+            }
+        },
+
+        "PublicSubnet0" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+                "CidrBlock" : { "Ref" : "PublicSubnet0Cidr" },
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PublicSubnet"           },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+
+        "PublicSubnet0RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "PublicRouteTable" },
+                "SubnetId" : { "Ref" : "PublicSubnet0" }
+            }
+        },
+
+        "PublicSubnet0NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+                "SubnetId" : { "Ref" : "PublicSubnet0" }
+            }
+        },
+
+        "PublicSubnet1" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+                "CidrBlock" : { "Ref" : "PublicSubnet1Cidr" },
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PublicSubnet"           },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+
+        "PublicSubnet1RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "PublicRouteTable" },
+                "SubnetId" : { "Ref" : "PublicSubnet1" }
+            }
+        },
+
+        "PublicSubnet1NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+                "SubnetId" : { "Ref" : "PublicSubnet1" }
+            }
+        }
+    },
+
+    "Outputs" : {
+        "VpcId" : {
+            "Value" : { "Ref" : "VPC" },
+            "Description" : "VPC ID"
+        },
+        "PublicSubnet0" : {
+            "Value" : { "Ref" : "PublicSubnet0" },
+            "Description" : "ID of the first public subnet"
+        },
+        "PublicSubnet0AZ" : {
+            "Value" : { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+            "Description" : "AZ of the first public subnet"
+        },
+        "PublicSubnet1" : {
+            "Value" : { "Ref" : "PublicSubnet1" },
+            "Description" : "ID of the second public subnet"
+        },
+        "PublicSubnet1AZ" : {
+            "Value" : { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+            "Description" : "AZ of the second public subnet"
+        }
+    }
+}
