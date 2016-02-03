@@ -177,6 +177,11 @@ if 'StacksToCreateOrUpdate' in product_definition:
                 template_body_string = f.read()
             template_body_json = json.loads(template_body_string)
 
+            if 'Capabilities' in stack[stack_name]['Properties']:
+                stack_capabilities = stack[stack_name]['Properties']['Capabilities']
+            else:
+                stack_capabilities = []
+
             if 'Parameters' in template_body_json:
                 for parameter in template_body_json['Parameters']:
                     if parameter in parameter_values.keys():
@@ -199,7 +204,7 @@ if 'StacksToCreateOrUpdate' in product_definition:
                         StackName=stack_name,
                         TemplateBody=template_body_string,
                         Parameters=stack_parameters,
-                        Capabilities=['CAPABILITY_IAM']
+                        Capabilities=stack_capabilities
                     )
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Message'] == 'No updates are to be performed.':
@@ -222,7 +227,7 @@ if 'StacksToCreateOrUpdate' in product_definition:
                         StackName=stack_name,
                         TemplateBody=template_body_string,
                         Parameters=stack_parameters,
-                        Capabilities=['CAPABILITY_IAM']
+                        Capabilities=stack_capabilities
                     )
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == 'ValidationError':
