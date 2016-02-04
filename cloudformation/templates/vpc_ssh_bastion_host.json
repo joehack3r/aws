@@ -186,8 +186,8 @@
                     "# Install cloudformation helper scripts\n",
                     "apt-get update\n",
                     "apt-get --yes install python python3 python-pip python3-pip\n",
-                    "pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-                    "pip3 install --upgrade awscli\n",
+                    "pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "pip install --upgrade awscli\n",
 
                     "# Variables\n",
                     "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",

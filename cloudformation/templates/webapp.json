@@ -1,0 +1,380 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "ELB and WebApp. WebApp is in an AutoScalingGroup.",
+
+    "Parameters" : {
+
+        "CertificateArn" : {
+            "Description" : "ARN of the SSL Certificate.",
+            "Type" : "String"
+        },
+
+        "HostedZone" : {
+            "Description" : "DNS Domain",
+            "Type" : "String"
+        },
+
+        "InstanceType" : {
+            "Description" : "EC2 instance type",
+            "Type" : "String",
+            "ConstraintDescription" : "Must be a valid EC2 instance type.",
+            "Default" : "t2.nano"
+        },
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+            "Type" : "AWS::EC2::KeyPair::KeyName"
+        },
+
+        "PredefinedElbSecurityPolicy" : {
+            "Description" : "Name of the predefined security policy for negotiating SSL listener on ELB. This policy determines SSL Protocols, SSL Options, and SSL Ciphers.",
+            "Type" : "String",
+            "AllowedPattern" : "ELBSecurityPolicy-[0-9]{4,4}-[0-9]{2,2}"
+        },
+
+        "PublicSubnet0" : {
+            "Description" : "ID of the public subnet where the ELB and Web App instances will go",
+            "Type" : "AWS::EC2::Subnet::Id"
+        },
+
+        "PublicSubnet1" : {
+            "Description" : "ID of the public subnet where the ELB and Web App instances will go",
+            "Type" : "AWS::EC2::Subnet::Id"
+        },
+
+        "SshBastionSecurityGroupId" : {
+            "Description" : "Security group created where the bastion host server resides",
+            "Type" : "AWS::EC2::SecurityGroup::Id"
+        },
+
+        "UbuntuAmi" : {
+            "Description" : "AMI for the Web Server",
+            "Type" : "AWS::EC2::Image::Id"
+        },
+
+        "VpcId" : {
+            "Description" : "Physical ID of the VPC.",
+            "Type" : "String",
+            "AllowedPattern" : "vpc-[0-9a-f]{8,8}"
+        },
+
+        "WebAppDnsAlias" : {
+            "Description" : "DNS alias for the Elastic Load Balancer",
+            "Type" : "String"
+        }
+
+    },
+
+    "Resources" : {
+        "ElbSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Public facing ELB security group.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "WebServerSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Web server security group.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "SourceSecurityGroupId" : { "Ref" : "SshBastionSecurityGroupId"}
+                }],
+                "SecurityGroupEgress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "ElbEgressToWebServerPort80": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": { "Ref": "ElbSecurityGroup" },
+                "IpProtocol": "tcp",
+                "FromPort": "80",
+                "ToPort": "80",
+                "DestinationSecurityGroupId" : { "Ref" : "WebServerSecurityGroup" }
+            }
+        },
+
+        "WebServerIngressFromElbPort80": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": { "Ref": "WebServerSecurityGroup" },
+                "IpProtocol": "tcp",
+                "FromPort": "80",
+                "ToPort": "80",
+                "SourceSecurityGroupId" : { "Ref": "ElbSecurityGroup" }
+            }
+        },
+
+        "ElbEgressToWebServerPort443": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": { "Ref": "ElbSecurityGroup" },
+                "IpProtocol": "tcp",
+                "FromPort": "443",
+                "ToPort": "443",
+                "DestinationSecurityGroupId" : { "Ref" : "WebServerSecurityGroup" }
+            }
+        },
+
+        "WebServerIngressFromElbPort443": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": { "Ref": "WebServerSecurityGroup" },
+                "IpProtocol": "tcp",
+                "FromPort": "443",
+                "ToPort": "443",
+                "SourceSecurityGroupId" : { "Ref": "ElbSecurityGroup" }
+            }
+        },
+
+        "WebAppElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "DependsOn" : [ "ElbSecurityGroup" ],
+            "Properties" : {
+                "ConnectionDrainingPolicy" : { "Enabled" : "True" },
+                "CrossZone" : "true",
+                "LoadBalancerName" : "WebApp-ELB",
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "80",
+                    "Protocol"         : "HTTP",
+                    "InstancePort"     : "80",
+                    "InstanceProtocol" : "HTTP"
+                    }, {
+                    "LoadBalancerPort" : "443",
+                    "Protocol"         : "HTTPS",
+                    "InstancePort"     : "80",
+                    "InstanceProtocol" : "HTTP",
+                    "SSLCertificateId": {  "Ref" : "CertificateArn" },
+                    "PolicyNames": [ "ELBSecurityPolicy" ]
+                }],
+                "Policies" : [ {
+                    "PolicyName" : "ELBSecurityPolicy",
+                    "PolicyType" : "SSLNegotiationPolicyType",
+                    "Attributes" : [{
+                        "Name" : "Reference-Security-Policy",
+                        "Value" : { "Ref" : "PredefinedElbSecurityPolicy" }
+                    }]
+                }],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "3",
+                    "UnhealthyThreshold" : "5",
+                    "Interval" : "30",
+                    "Timeout" : "5"
+                },
+                "SecurityGroups" : [{ "Ref" : "ElbSecurityGroup" }],
+                "Subnets" : [ { "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" } ]
+            }
+        },
+
+        "WebAppIamRole" : {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [ "ec2.amazonaws.com" ]
+                        },
+                        "Action": [ "sts:AssumeRole" ]
+                    } ]
+                },
+                "Path": "/",
+                "Policies" : [{
+                    "PolicyName": { "Fn::Join" : ["", [ { "Ref" : "AWS::StackName" }, "-describe-instance-health-policy" ]] },
+                    "PolicyDocument": {
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": [ "elasticloadbalancing:DescribeInstanceHealth" ],
+                            "Resource": "*"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::codedeploydemobucket/*",
+                                "arn:aws:s3:::aws-codedeploy-us-east-1/*",
+                                "arn:aws:s3:::aws-codedeploy-us-west-2/*",
+                                "arn:aws:s3:::aws-codedeploy-us-west-1/*",        
+                                "arn:aws:s3:::aws-codedeploy-eu-west-1/*",
+                                "arn:aws:s3:::aws-codedeploy-eu-central-1/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-southeast-1/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-southeast-2/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-northeast-1/*"
+                            ]
+                        }]
+                    }
+                }]
+            }
+        },
+
+        "WebServerInstanceProfile" : { 
+                "Type": "AWS::IAM::InstanceProfile",
+                "Properties": {
+                        "Path": "/",
+                        "Roles": [ { "Ref": "WebAppIamRole" } ]
+                }
+        },
+
+        "WebAppLaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn" : [ "WebAppElasticLoadBalancer" ],
+            "Metadata" : {
+                "Comment" : "Install Nginx and serve a single static file.",
+                "AWS::CloudFormation::Init" : {
+                    "configSets" : {
+                        "full_install" : [ "install_packages", "download_static_files", "verify_instance_health" ]
+                    },
+
+                    "install_packages" : {
+                        "packages" : {
+                            "apt" : {
+                                "nginx" : []
+                            }
+                        }
+                    },
+
+                    "download_static_files" : {
+                        "files" : {
+                            "/usr/share/nginx/html/index.html" : {
+                                "content" : { "Fn::Join" : ["\n", [
+                                    "<h1>Hello World!</h1>"
+                                ]]},
+                                "mode"    : "000644",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        }
+                    },
+
+                    "verify_instance_health" : {
+                        "commands" : {
+                            "ELBHealthCheck" : {
+                                "command" : { "Fn::Join" : ["", [ 
+                                    "until [ \"$state\" = \"\\\"InService\\\"\" ]; do ",
+                                    "  state=$(aws --region ", { "Ref" : "AWS::Region" }, " elb describe-instance-health ",
+                                    "              --load-balancer-name ", { "Ref" : "WebAppElasticLoadBalancer" }, 
+                                    "              --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
+                                    "              --query InstanceStates[0].State); ",
+                                    "  sleep 10; ",
+                                    "done"
+                                ]]}
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties" : {
+                "AssociatePublicIpAddress" : "True",
+                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "KeyName": { "Ref": "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "WebServerSecurityGroup" } ],
+                "IamInstanceProfile" : { "Ref" : "WebServerInstanceProfile" },
+                "InstanceType" : { "Ref" : "InstanceType" },
+                "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+                    "#!/bin/bash -v\n",
+
+                    "# Capture UserData script output in multiple locations for easier debugging\n",
+                    "# http://alestic.com/2010/12/ec2-user-data-output\n",
+                    "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+
+                    "# Install cloudformation helper scripts\n",
+                    "apt-get update\n",
+                    "apt-get --yes install python python3 python-pip python3-pip\n",
+                    "pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "pip install --upgrade awscli\n",
+
+                    "# CodeDeploy Agent\n",
+                    "apt-get install -y ruby2.0\n",
+                    "aws s3 cp s3://aws-codedeploy-us-east-1/latest/install /tmp --region ", { "Ref" : "AWS::Region" }, "\n",
+                    "chmod +x /tmp/install\n",
+                    "/tmp/install auto\n",
+
+                    "/usr/local/bin/cfn-init -v ",
+                    "         --stack ", { "Ref" : "AWS::StackName" },
+                    "         --resource WebAppLaunchConfig ",
+                    "         --configsets full_install",
+                    "         --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                    "/usr/local/bin/cfn-signal -e $? ",
+                    "         --stack ", { "Ref" : "AWS::StackName" },
+                    "         --resource WebServerAutoScalingGroup ",
+                    "         --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                    "\n"
+
+                ]]}}
+            }
+        },
+
+        "WebServerAutoScalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "CreationPolicy" : {
+                "ResourceSignal" : {
+                    "Timeout" : "PT20M",
+                    "Count"   : "1"
+                }
+            },
+            "Properties": {
+                "LaunchConfigurationName": { "Ref": "WebAppLaunchConfig" },
+                "MinSize": "1",
+                "MaxSize": "2",
+                "LoadBalancerNames": [ { "Ref": "WebAppElasticLoadBalancer" } ],
+                "VPCZoneIdentifier" : [{ "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" }]
+            }
+        },
+        "ElbDnsRecord" : {
+             "Type" : "AWS::Route53::RecordSet",
+             "Properties" : {
+                    "Comment" : "DNS entry for ELB.",
+                    "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
+                    "Name" : {
+                        "Fn::Join" : [ "", [ { "Ref" : "WebAppDnsAlias" }, ".", { "Ref" : "HostedZone" } ,"." ]]},
+                    "AliasTarget" : { 
+                        "DNSName" : { "Fn::Join" : [ "", [ { "Fn::GetAtt" : [ "WebAppElasticLoadBalancer" , "DNSName" ] }, "." ]]},
+                        "HostedZoneId" : { "Fn::GetAtt" : [ "WebAppElasticLoadBalancer", "CanonicalHostedZoneNameID" ] }
+                    },
+                "Type" : "A"
+            }
+        }
+
+    },
+
+    "Outputs" : {
+        "URL" : {
+            "Description" : "URL of the website",
+            "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "WebAppDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
+        }
+    }
+}
