@@ -10,21 +10,26 @@
             "Type" : "String"
         },
 
+        "Environment" : {
+            "Description" : "Environment name - no spaces or underscored allowed.",
+            "Type" : "String",
+            "AllowedPattern" : "[-a-zA-Z0-9]*"
+        },
+
         "HostedZone" : {
-            "Description" : "DNS Domain",
+            "Description" : "Top Level Domain for DNS records to be created.",
             "Type" : "String"
         },
 
-        "InstanceType" : {
-            "Description" : "EC2 instance type",
-            "Type" : "String",
-            "ConstraintDescription" : "Must be a valid EC2 instance type.",
-            "Default" : "t2.nano"
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances.",
+            "Type" : "AWS::EC2::KeyPair::KeyName"
         },
 
-        "KeyName" : {
-            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
-            "Type" : "AWS::EC2::KeyPair::KeyName"
+        "OwnerTag" : {
+            "Description" : "Owner Tag. Preferably email username or email address.",
+            "Type" : "String",
+            "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
         },
 
         "PredefinedElbSecurityPolicy" : {
@@ -34,22 +39,22 @@
         },
 
         "PublicSubnet0" : {
-            "Description" : "ID of the public subnet where the ELB and Web App instances will go",
+            "Description" : "ID of the public subnet where the ELB and Web App instances will go.",
             "Type" : "AWS::EC2::Subnet::Id"
         },
 
         "PublicSubnet1" : {
-            "Description" : "ID of the public subnet where the ELB and Web App instances will go",
+            "Description" : "ID of the public subnet where the ELB and Web App instances will go.",
             "Type" : "AWS::EC2::Subnet::Id"
         },
 
         "SshBastionSecurityGroupId" : {
-            "Description" : "Security group created where the bastion host server resides",
+            "Description" : "Security group id where the bastion host server resides.",
             "Type" : "AWS::EC2::SecurityGroup::Id"
         },
 
         "UbuntuAmi" : {
-            "Description" : "AMI for the Web Server",
+            "Description" : "AMI for the Web Server.",
             "Type" : "AWS::EC2::Image::Id"
         },
 
@@ -60,8 +65,27 @@
         },
 
         "WebAppDnsAlias" : {
-            "Description" : "DNS alias for the Elastic Load Balancer",
+            "Description" : "DNS alias for the Elastic Load Balancer.",
             "Type" : "String"
+        },
+
+        "WebAppInstanceCountMin" : {
+            "Description" : "Minimum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "1"
+        },
+
+        "WebAppInstanceCountMax" : {
+            "Description" : "Maximum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "2"
+        },
+
+        "WebAppInstanceType" : {
+            "Description" : "Web App EC2 instance type.",
+            "Type" : "String",
+            "ConstraintDescription" : "Must be a valid EC2 instance type.",
+            "Default" : "t2.nano"
         }
 
     },
@@ -254,7 +278,40 @@
                 "Comment" : "Install Nginx and serve a single static file.",
                 "AWS::CloudFormation::Init" : {
                     "configSets" : {
-                        "full_install" : [ "install_packages", "download_static_files", "verify_instance_health" ]
+                        "first_install" : [ "install_cfn", "install_packages", 
+                                            "download_static_files", "verify_instance_health"],
+                        "subsequent_installs" : [ "download_static_files", "verify_instance_health"]
+                    },
+
+                    "install_cfn" : {
+                        "files" : {
+                            "/etc/cfn/cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n",
+                                    "interval=1\n",
+                                    "verbose=true\n"
+                                ]]},
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                                "content": { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/usr/local/bin/cfn-init -v ",
+                                    " --stack ", { "Ref" : "AWS::StackName" },
+                                    " --resource WebAppLaunchConfig ",
+                                    " --configsets subsequent_installs ",
+                                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "runas=root\n"
+                                ]]}
+                            }
+                        }
                     },
 
                     "install_packages" : {
@@ -293,6 +350,7 @@
                             }
                         }
                     }
+
                 }
             },
             "Properties" : {
@@ -301,7 +359,7 @@
                 "KeyName": { "Ref": "KeyName" },
                 "SecurityGroups" : [ { "Ref" : "WebServerSecurityGroup" } ],
                 "IamInstanceProfile" : { "Ref" : "WebServerInstanceProfile" },
-                "InstanceType" : { "Ref" : "InstanceType" },
+                "InstanceType" : { "Ref" : "WebAppInstanceType" },
                 "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
                     "#!/bin/bash -v\n",
 
@@ -322,37 +380,58 @@
                     "/tmp/install auto\n",
 
                     "/usr/local/bin/cfn-init -v ",
-                    "         --stack ", { "Ref" : "AWS::StackName" },
-                    "         --resource WebAppLaunchConfig ",
-                    "         --configsets full_install",
-                    "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource WebAppLaunchConfig ",
+                    " --configsets first_install",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
 
                     "/usr/local/bin/cfn-signal -e $? ",
-                    "         --stack ", { "Ref" : "AWS::StackName" },
-                    "         --resource WebServerAutoScalingGroup ",
-                    "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource WebServerAutoScalingGroup ",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                     "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
+                     "/usr/local/bin/cfn-hup --config /etc/cfn --verbose\n",
 
                     "\n"
-
                 ]]}}
             }
         },
 
         "WebServerAutoScalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "LaunchConfigurationName": { "Ref": "WebAppLaunchConfig" },
+                "MinSize": { "Ref" : "WebAppInstanceCountMin" },
+                "MaxSize": { "Ref" : "WebAppInstanceCountMax" },
+                "Tags": [
+                    { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/myProduct/", { "Ref" : "Environment" }, "/webapp" ]]}, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "product",     "Value" : "myProduct",                    "PropagateAtLaunch" : "true" },
+                    { "Key" : "role",        "Value" : "webapp",            "PropagateAtLaunch" : "true" },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                ],
+                "LoadBalancerNames": [ { "Ref": "WebAppElasticLoadBalancer" } ],
+                "VPCZoneIdentifier" : [{ "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" }]
+            },
             "CreationPolicy" : {
                 "ResourceSignal" : {
-                    "Timeout" : "PT20M",
+                    "Timeout" : "PT15M",
                     "Count"   : "1"
                 }
             },
-            "Properties": {
-                "LaunchConfigurationName": { "Ref": "WebAppLaunchConfig" },
-                "MinSize": "1",
-                "MaxSize": "2",
-                "LoadBalancerNames": [ { "Ref": "WebAppElasticLoadBalancer" } ],
-                "VPCZoneIdentifier" : [{ "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" }]
+            "UpdatePolicy" : {
+                "AutoScalingScheduledAction" : {
+                    "IgnoreUnmodifiedGroupSizeProperties" : "true"
+                },
+                "AutoScalingRollingUpdate" : {
+                    "MinInstancesInService" : "1",
+                    "MaxBatchSize" : "1",
+                    "WaitOnResourceSignals" : "true",
+                    "PauseTime" : "PT15M"
+                }
             }
+
         },
         "ElbDnsRecord" : {
              "Type" : "AWS::Route53::RecordSet",

@@ -6,9 +6,9 @@
     "Parameters" : {
 
         "Environment" : {
-            "Description" : "Environment name - no spaces allowed.",
+            "Description" : "Environment name - no spaces or underscored allowed.",
             "Type" : "String",
-            "AllowedPattern" : "[-_a-zA-Z0-9]*"
+            "AllowedPattern" : "[-a-zA-Z0-9]*"
         },
 
         "KeyName" : {
@@ -23,31 +23,31 @@
         },
 
         "PublicSubnet0" : {
-            "Description" : "ID of the public subnet where SSH-Bastion instance will go",
+            "Description" : "ID of the public subnet where SSH Bastion instance will go.",
             "Type" : "AWS::EC2::Subnet::Id"
         },
 
         "SshBastionInstanceType" : {
-            "Description" : "Bastion Host EC2 instance type",
+            "Description" : "SSH Bastion Host EC2 instance type.",
             "Type" : "String",
             "ConstraintDescription" : "Must be a valid EC2 instance type.",
             "Default" : "t2.nano"
         },
 
         "SshBastionInstanceCountMin" : {
-            "Description" : "Min size of instances in auto scaling group.",
+            "Description" : "Minimum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "1"
         },
 
         "SshBastionInstanceCountMax" : {
-            "Description" : "Max size of instances in auto scaling group.",
+            "Description" : "Maximum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "1"
         },
 
         "SshBastionSecurityGroupId" : {
-            "Description" : "Bastion security group",
+            "Description" : "Security group id where the bastion host server resides.",
             "Type" : "AWS::EC2::SecurityGroup::Id"
         },
 
@@ -57,7 +57,7 @@
         },
 
         "VpcId" : {
-            "Description" : "VPD Id.",
+            "Description" : "Physical ID of the VPC.",
             "Type" : "AWS::EC2::VPC::Id"
         }
     },
@@ -155,19 +155,54 @@
         "SshBastionLaunchConfiguration": {
             "Type": "AWS::AutoScaling::LaunchConfiguration",
             "Metadata" : {
+                "Comment" : "Configure cfn-hup.",
                 "AWS::CloudFormation::Init" : {
-                    "config" : {
-                        "packages" : {
-                            "apt" : {
-                                "git" : [],
-                                "unzip" : [],
-                                "zip" : []
+                    "configSets" : {
+                        "first_install" : [ "install_cfn" ],
+                        "subsequent_installs" : [ "do_nothing" ]
+                    },
+
+                    "install_cfn" : {
+                        "files" : {
+                            "/etc/cfn/cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n",
+                                    "interval=1\n",
+                                    "verbose=true\n"
+                                ]]},
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                                "content": { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/usr/local/bin/cfn-init -v ",
+                                    " --stack ", { "Ref" : "AWS::StackName" },
+                                    " --resource SshBastionLaunchConfiguration ",
+                                    " --configsets subsequent_installs ",
+                                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "runas=root\n"
+                                ]]}
+                            }
+                        }
+                    },
+
+                    "do_nothing" : {
+                        "commands" : {
+                            "test" : {
+                                "command" : "date >> /tmp/do_nothing.log",
+                                "ignoreErrors" : "true"
                             }
                         }
                     }
                 }
             },
-
             "Properties": {
                 "AssociatePublicIpAddress" : "True",
                 "ImageId": { "Ref" : "UbuntuAmi" },
@@ -192,18 +227,6 @@
                     "# Variables\n",
                     "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
 
-                    "# Functions\n",
-                    "function error_exit\n",
-                    "{\n",
-                    "  cfn-signal --exit-code 1 --stack ", { "Ref" : "AWS::StackName" }, " --resource SshBastionScalingGroup ", "--region ", { "Ref" : "AWS::Region" }, "\n",
-                    "  exit 1\n",
-                    "}\n",
-
-                    "# Download and create files\n",
-                    "# Start with CloudFormation::Init files\n",
-                    "cfn-init --region ", { "Ref" : "AWS::Region" },
-                    "    -s ", { "Ref" : "AWS::StackId" }, " -r SshBastionLaunchConfiguration || error_exit 'Failed to run cfn-init'\n",
-
                     "# Configure OS\n",
                     "# Associate the Elastic Network Interface to the instance\n",
                     "attachmentId=`aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --attribute attachment --region ", { "Ref" : "AWS::Region" }, " | grep AttachmentId | awk -F\"[ \t\\\",]+\" {'print $4'}`\n",
@@ -223,23 +246,27 @@
                     "# Extra step to help ensure DNS server is populated in /etc/resolve.conf (DHCP lease information in /var/lib/dhcp/)\n",
                     "dhclient\n",
 
+                     "/usr/local/bin/cfn-init -v ",
+                     " --stack ", { "Ref" : "AWS::StackName" },
+                     " --resource SshBastionLaunchConfiguration ",
+                     " --configsets first_install",
+                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
-                    "# Configure Applications\n",
-                    "cfn-init --region ", { "Ref" : "AWS::Region" },
-                    "    -s ", { "Ref" : "AWS::StackId" }, " -r SshBastionLaunchConfiguration || error_exit 'Failed to run cfn-init'\n",
+                     "/usr/local/bin/cfn-signal -e $? ",
+                     " --stack ", { "Ref" : "AWS::StackName" },
+                     " --resource SshBastionAutoScalingGroup ",
+                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
-
-                    "# cfn-init signal success\n",
-                    "cfn-signal --exit-code 0 --stack ", { "Ref" : "AWS::StackName" }, " --resource SshBastionScalingGroup ", "--region ", { "Ref" : "AWS::Region" }, "\n",
+                     "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
+                     "/usr/local/bin/cfn-hup --config /etc/cfn --verbose\n",
 
                     "\n"
                 ]]}}
             }
         },
 
-        "SshBastionScalingGroup": {
+        "SshBastionAutoScalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
-            "Version": "2009-05-15",
             "Properties": {
                 "LaunchConfigurationName": { "Ref": "SshBastionLaunchConfiguration" },
                 "MinSize": { "Ref" : "SshBastionInstanceCountMin" },
@@ -253,6 +280,12 @@
                 ],
                 "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet0" } ]
             },
+            "CreationPolicy" : {
+                "ResourceSignal" : {
+                    "Timeout" : "PT15M",
+                    "Count"   : "1"
+                }
+            },
             "UpdatePolicy" : {
                 "AutoScalingScheduledAction" : {
                     "IgnoreUnmodifiedGroupSizeProperties" : "true"
@@ -261,7 +294,7 @@
                     "MinInstancesInService" : "0",
                     "MaxBatchSize" : "1",
                     "WaitOnResourceSignals" : "true",
-                    "PauseTime" : "PT10M"
+                    "PauseTime" : "PT15M"
                 }
             }
         }
