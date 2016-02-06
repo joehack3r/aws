@@ -1,7 +1,7 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
 
-    "Description" : "SSH Bastion host.",
+    "Description" : "SSH Bastion host. Limited to single Availability Zone due to ENI usage.",
 
     "Parameters" : {
 
@@ -74,86 +74,86 @@
         "SshBastionDeviceEni" : {
             "Type" : "AWS::EC2::NetworkInterface",
             "Properties" : {
-                "Tags": [
+                "Tags" : [
                     { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/vpc/", { "Ref" : "Environment" }, "/ssh-bastion-eni" ]]} },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
                     { "Key" : "product",     "Value" : "vpc" },
                     { "Key" : "role",        "Value" : "ssh-bastion-eni" },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" } }
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" } }
                 ],
-                "Description": "Elastic Network Interface to be used for SSH Bastion Device.",
-                "GroupSet": [ { "Ref" : "SshBastionSecurityGroupId" } ],
-                "SubnetId": { "Ref" : "PublicSubnet0" }
+                "Description" : "Elastic Network Interface to be used for SSH Bastion Device.",
+                "GroupSet" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
+                "SubnetId" : { "Ref" : "PublicSubnet0" }
             }
         },
 
         "SshBastionElasticIpAssociation" : {
-            "Type": "AWS::EC2::EIPAssociation",
-            "Properties": {
-                "AllocationId": { "Fn::GetAtt" : [ "SshBastionIpAddress", "AllocationId" ]},
+            "Type" : "AWS::EC2::EIPAssociation",
+            "Properties" : {
+                "AllocationId" : { "Fn::GetAtt" : [ "SshBastionIpAddress", "AllocationId" ]},
                 "NetworkInterfaceId" : { "Ref" : "SshBastionDeviceEni" }
             }
         },
 
-        "SshBastionRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [
+        "SshBastionRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Statement" : [
                         {
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": [
+                            "Effect" : "Allow",
+                            "Principal" : {
+                                "Service" : [
                                     "ec2.amazonaws.com"
                                 ]
                             },
-                            "Action": [
+                            "Action" : [
                                 "sts:AssumeRole"
                             ]
                         }
                     ]
                 },
-                "Path": "/"
+                "Path" : "/"
             }
         },
 
-        "SshBastionRolePolicies": {
-            "Type": "AWS::IAM::Policy",
-            "Properties": {
-                "PolicyName": "SshBastion",
-                "PolicyDocument": {
-                    "Statement": [
+        "SshBastionRolePolicies" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "SshBastion",
+                "PolicyDocument" : {
+                    "Statement" : [
                         {
-                            "Action":[
+                            "Action" :[
                                 "ec2:AttachNetworkInterface",
                                 "ec2:DescribeInstances",
                                 "ec2:DescribeInstanceStatus",
                                 "ec2:DescribeNetworkInterfaceAttribute",
                                 "ec2:DetachNetworkInterface"
                             ],
-                            "Effect":"Allow",
-                            "Resource":"*"
+                            "Effect" :"Allow",
+                            "Resource" :"*"
                         }
                     ]
                 },
-            "Roles": [
-                { "Ref": "SshBastionRole" }
+            "Roles" : [
+                { "Ref" : "SshBastionRole" }
             ]
             }
         },
 
-        "SshBastionInstanceProfile": {
-            "Type": "AWS::IAM::InstanceProfile",
-            "Properties": {
-                "Path": "/",
-                "Roles": [
-                    { "Ref": "SshBastionRole" }
+        "SshBastionInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Path" : "/",
+                "Roles" : [
+                    { "Ref" : "SshBastionRole" }
                 ]
             }
         },
 
-        "SshBastionLaunchConfiguration": {
-            "Type": "AWS::AutoScaling::LaunchConfiguration",
+        "SshBastionLaunchConfiguration" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
             "Metadata" : {
                 "Comment" : "Configure cfn-hup.",
                 "AWS::CloudFormation::Init" : {
@@ -178,7 +178,7 @@
                             },
 
                             "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
-                                "content": { "Fn::Join" : ["", [
+                                "content" : { "Fn::Join" : ["", [
                                     "[cfn-auto-reloader-hook]\n",
                                     "triggers=post.update\n",
                                     "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
@@ -203,15 +203,15 @@
                     }
                 }
             },
-            "Properties": {
+            "Properties" : {
                 "AssociatePublicIpAddress" : "True",
-                "ImageId": { "Ref" : "UbuntuAmi" },
-                "InstanceType": { "Ref": "SshBastionInstanceType" },
-                "KeyName": { "Ref": "KeyName" },
-                "IamInstanceProfile": { "Ref": "SshBastionInstanceProfile" },
-                "InstanceMonitoring": "false",
-                "SecurityGroups": [{ "Ref": "SshBastionSecurityGroupId" }],
-                "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+                "IamInstanceProfile" : { "Ref" : "SshBastionInstanceProfile" },
+                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "InstanceMonitoring" : "false",
+                "InstanceType" : { "Ref" : "SshBastionInstanceType" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
                     "#!/bin/bash -v\n",
 
                     "# Capture UserData script output in multiple locations for easier debugging\n",
@@ -265,18 +265,18 @@
             }
         },
 
-        "SshBastionAutoScalingGroup": {
-            "Type": "AWS::AutoScaling::AutoScalingGroup",
-            "Properties": {
-                "LaunchConfigurationName": { "Ref": "SshBastionLaunchConfiguration" },
-                "MinSize": { "Ref" : "SshBastionInstanceCountMin" },
-                "MaxSize": { "Ref" : "SshBastionInstanceCountMax" },
-                "Tags": [
+        "SshBastionAutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "LaunchConfigurationName" : { "Ref" : "SshBastionLaunchConfiguration" },
+                "MinSize" : { "Ref" : "SshBastionInstanceCountMin" },
+                "MaxSize" : { "Ref" : "SshBastionInstanceCountMax" },
+                "Tags" : [
                     { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/vpc/", { "Ref" : "Environment" }, "/ssh-bastion" ]]}, "PropagateAtLaunch" : "true" },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
                     { "Key" : "product",     "Value" : "vpc",                    "PropagateAtLaunch" : "true" },
                     { "Key" : "role",        "Value" : "ssh-bastion",            "PropagateAtLaunch" : "true" },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
                 "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet0" } ]
             },

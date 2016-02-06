@@ -54,7 +54,7 @@
         },
 
         "UbuntuAmi" : {
-            "Description" : "AMI for the Web Server.",
+            "Description" : "AMI ID for Ubuntu image to be used for the Web App.",
             "Type" : "AWS::EC2::Image::Id"
         },
 
@@ -87,7 +87,6 @@
             "ConstraintDescription" : "Must be a valid EC2 instance type.",
             "Default" : "t2.nano"
         }
-
     },
 
     "Resources" : {
@@ -110,7 +109,7 @@
             }
         },
 
-        "WebServerSecurityGroup" : {
+        "WebAppSecurityGroup" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
                 "GroupDescription" : "Web server security group.",
@@ -135,47 +134,47 @@
             }
         },
 
-        "ElbEgressToWebServerPort80": {
-            "Type": "AWS::EC2::SecurityGroupEgress",
-            "Properties": {
-                "GroupId": { "Ref": "ElbSecurityGroup" },
-                "IpProtocol": "tcp",
-                "FromPort": "80",
-                "ToPort": "80",
-                "DestinationSecurityGroupId" : { "Ref" : "WebServerSecurityGroup" }
+        "ElbEgressToWebAppPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "ElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "DestinationSecurityGroupId" : { "Ref" : "WebAppSecurityGroup" }
             }
         },
 
-        "WebServerIngressFromElbPort80": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Properties": {
-                "GroupId": { "Ref": "WebServerSecurityGroup" },
-                "IpProtocol": "tcp",
-                "FromPort": "80",
-                "ToPort": "80",
-                "SourceSecurityGroupId" : { "Ref": "ElbSecurityGroup" }
+        "WebAppIngressFromElbPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "WebAppSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "SourceSecurityGroupId" : { "Ref" : "ElbSecurityGroup" }
             }
         },
 
-        "ElbEgressToWebServerPort443": {
-            "Type": "AWS::EC2::SecurityGroupEgress",
-            "Properties": {
-                "GroupId": { "Ref": "ElbSecurityGroup" },
-                "IpProtocol": "tcp",
-                "FromPort": "443",
-                "ToPort": "443",
-                "DestinationSecurityGroupId" : { "Ref" : "WebServerSecurityGroup" }
+        "ElbEgressToWebAppPort443" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "ElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "DestinationSecurityGroupId" : { "Ref" : "WebAppSecurityGroup" }
             }
         },
 
-        "WebServerIngressFromElbPort443": {
-            "Type": "AWS::EC2::SecurityGroupIngress",
-            "Properties": {
-                "GroupId": { "Ref": "WebServerSecurityGroup" },
-                "IpProtocol": "tcp",
-                "FromPort": "443",
-                "ToPort": "443",
-                "SourceSecurityGroupId" : { "Ref": "ElbSecurityGroup" }
+        "WebAppIngressFromElbPort443" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "WebAppSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "SourceSecurityGroupId" : { "Ref" : "ElbSecurityGroup" }
             }
         },
 
@@ -185,19 +184,19 @@
             "Properties" : {
                 "ConnectionDrainingPolicy" : { "Enabled" : "True" },
                 "CrossZone" : "true",
-                "LoadBalancerName" : "WebApp-ELB",
+                "LoadBalancerName" : { "Fn::Join" : [ "", [ "WebApp-", { "Ref" : "Environment" }, "-Elb" ]]},
                 "Listeners" : [ {
                     "LoadBalancerPort" : "80",
                     "Protocol"         : "HTTP",
                     "InstancePort"     : "80",
                     "InstanceProtocol" : "HTTP"
-                    }, {
+                    },{
                     "LoadBalancerPort" : "443",
                     "Protocol"         : "HTTPS",
                     "InstancePort"     : "80",
                     "InstanceProtocol" : "HTTP",
-                    "SSLCertificateId": {  "Ref" : "CertificateArn" },
-                    "PolicyNames": [ "ELBSecurityPolicy" ]
+                    "SSLCertificateId" : {  "Ref" : "CertificateArn" },
+                    "PolicyNames" : [ "ELBSecurityPolicy" ]
                 }],
                 "Policies" : [ {
                     "PolicyName" : "ELBSecurityPolicy",
@@ -215,38 +214,44 @@
                     "Timeout" : "5"
                 },
                 "SecurityGroups" : [{ "Ref" : "ElbSecurityGroup" }],
-                "Subnets" : [ { "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" } ]
+                "Subnets" : [ { "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" } ],
+                "Tags" : [
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
+                    { "Key" : "product",     "Value" : "myProduct"              },
+                    { "Key" : "role",        "Value" : "elb"                    },
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" }    }
+                ]
             }
         },
 
         "WebAppIamRole" : {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [ {
-                        "Effect": "Allow",
-                        "Principal": {
-                            "Service": [ "ec2.amazonaws.com" ]
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Statement" : [ {
+                        "Effect" : "Allow",
+                        "Principal" : {
+                            "Service" : [ "ec2.amazonaws.com" ]
                         },
-                        "Action": [ "sts:AssumeRole" ]
+                        "Action" : [ "sts:AssumeRole" ]
                     } ]
                 },
-                "Path": "/",
+                "Path" : "/",
                 "Policies" : [{
-                    "PolicyName": { "Fn::Join" : ["", [ { "Ref" : "AWS::StackName" }, "-describe-instance-health-policy" ]] },
-                    "PolicyDocument": {
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Action": [ "elasticloadbalancing:DescribeInstanceHealth" ],
-                            "Resource": "*"
+                    "PolicyName" : { "Fn::Join" : ["", [ { "Ref" : "AWS::StackName" }, "-describe-instance-health-policy" ]] },
+                    "PolicyDocument" : {
+                        "Statement" : [{
+                            "Effect" : "Allow",
+                            "Action" : [ "elasticloadbalancing:DescribeInstanceHealth" ],
+                            "Resource" : "*"
                         },
                         {
-                            "Effect": "Allow",
-                            "Action": [
+                            "Effect" : "Allow",
+                            "Action" : [
                                 "s3:Get*",
                                 "s3:List*"
                             ],
-                            "Resource": [
+                            "Resource" : [
                                 "arn:aws:s3:::codedeploydemobucket/*",
                                 "arn:aws:s3:::aws-codedeploy-us-east-1/*",
                                 "arn:aws:s3:::aws-codedeploy-us-west-2/*",
@@ -263,11 +268,11 @@
             }
         },
 
-        "WebServerInstanceProfile" : { 
-                "Type": "AWS::IAM::InstanceProfile",
-                "Properties": {
-                        "Path": "/",
-                        "Roles": [ { "Ref": "WebAppIamRole" } ]
+        "WebAppInstanceProfile" : { 
+                "Type" : "AWS::IAM::InstanceProfile",
+                "Properties" : {
+                        "Path" : "/",
+                        "Roles" : [ { "Ref" : "WebAppIamRole" } ]
                 }
         },
 
@@ -299,7 +304,7 @@
                             },
 
                             "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
-                                "content": { "Fn::Join" : ["", [
+                                "content" : { "Fn::Join" : ["", [
                                     "[cfn-auto-reloader-hook]\n",
                                     "triggers=post.update\n",
                                     "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
@@ -350,17 +355,17 @@
                             }
                         }
                     }
-
                 }
             },
             "Properties" : {
                 "AssociatePublicIpAddress" : "True",
+                "IamInstanceProfile" : { "Ref" : "WebAppInstanceProfile" },
                 "ImageId" : { "Ref" : "UbuntuAmi" },
-                "KeyName": { "Ref": "KeyName" },
-                "SecurityGroups" : [ { "Ref" : "WebServerSecurityGroup" } ],
-                "IamInstanceProfile" : { "Ref" : "WebServerInstanceProfile" },
+                "InstanceMonitoring" : "false",
                 "InstanceType" : { "Ref" : "WebAppInstanceType" },
-                "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "WebAppSecurityGroup" } ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
                     "#!/bin/bash -v\n",
 
                     "# Capture UserData script output in multiple locations for easier debugging\n",
@@ -387,7 +392,7 @@
 
                     "/usr/local/bin/cfn-signal -e $? ",
                     " --stack ", { "Ref" : "AWS::StackName" },
-                    " --resource WebServerAutoScalingGroup ",
+                    " --resource WebAppAutoScalingGroup ",
                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
                      "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
@@ -398,20 +403,20 @@
             }
         },
 
-        "WebServerAutoScalingGroup": {
-            "Type": "AWS::AutoScaling::AutoScalingGroup",
-            "Properties": {
-                "LaunchConfigurationName": { "Ref": "WebAppLaunchConfig" },
-                "MinSize": { "Ref" : "WebAppInstanceCountMin" },
-                "MaxSize": { "Ref" : "WebAppInstanceCountMax" },
-                "Tags": [
+        "WebAppAutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "LaunchConfigurationName" : { "Ref" : "WebAppLaunchConfig" },
+                "MinSize" : { "Ref" : "WebAppInstanceCountMin" },
+                "MaxSize" : { "Ref" : "WebAppInstanceCountMax" },
+                "Tags" : [
                     { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/myProduct/", { "Ref" : "Environment" }, "/webapp" ]]}, "PropagateAtLaunch" : "true" },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
                     { "Key" : "product",     "Value" : "myProduct",                    "PropagateAtLaunch" : "true" },
                     { "Key" : "role",        "Value" : "webapp",            "PropagateAtLaunch" : "true" },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "LoadBalancerNames": [ { "Ref": "WebAppElasticLoadBalancer" } ],
+                "LoadBalancerNames" : [ { "Ref" : "WebAppElasticLoadBalancer" } ],
                 "VPCZoneIdentifier" : [{ "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" }]
             },
             "CreationPolicy" : {
@@ -431,8 +436,8 @@
                     "PauseTime" : "PT15M"
                 }
             }
-
         },
+
         "ElbDnsRecord" : {
              "Type" : "AWS::Route53::RecordSet",
              "Properties" : {
@@ -447,12 +452,11 @@
                 "Type" : "A"
             }
         }
-
     },
 
     "Outputs" : {
-        "URL" : {
-            "Description" : "URL of the website",
+        "WebAppURL" : {
+            "Description" : "URL to access WebApp.",
             "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "WebAppDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
         }
     }
