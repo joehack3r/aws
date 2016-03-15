@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import boto3
 import botocore
 import json
@@ -98,8 +99,20 @@ def get_active_stacks():
 
 # Main
 
+# Arguments
+parser = argparse.ArgumentParser(description='Create, Read, Update, and Delete CloudFormation stacks')
+parser.add_argument('-f', '--definition-file', action='store', dest='definition_file', required=False,
+                    help='Definition file identifying stacks to create, read, update, and delete')
+loglevel_group = parser.add_mutually_exclusive_group()
+loglevel_group.add_argument('-d', '--debug', action="store_const", dest="loglevel", const=logging.DEBUG,
+                    help="Set log level to debug",
+                    default=logging.INFO)
+loglevel_group.add_argument('-v', '--verbose', action="store_const", dest="loglevel", const=logging.INFO,
+                    help="Set log level to verbose")
+args = parser.parse_args()
+
 # Initialize
-with open(sys.argv[1]) as cd_file:
+with open(args.definition_file) as cd_file:
     product_definition = json.load(cd_file)
 
 # Set up logging
@@ -110,7 +123,7 @@ fh = logging.FileHandler(os.path.splitext(os.path.basename(__file__))[0] + ".log
 fh.setLevel(logging.DEBUG)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
+ch.setLevel(level=args.loglevel)
 # create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
@@ -120,6 +133,7 @@ logger.addHandler(ch)
 logger.addHandler(fh)
 
 logger.debug("Starting script: " + str(os.path.basename(__file__)))
+logger.debug("Arguments are %s" % (args))
 
 # Get CloudFormation Parameters
 parameter_values = {}
