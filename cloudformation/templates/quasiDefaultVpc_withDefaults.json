@@ -21,8 +21,8 @@
       "Default": "172.31.0.0/16"
     },
 
-    "PublicSubnetA0Cidr" : {
-      "Description" : " The IP address range, in CIDR format, for the availability zone A public subnet.",
+    "PublicSubnet0CIdr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone 0 public subnet.",
       "Type": "String",
       "MinLength": "9",
       "MaxLength": "18",
@@ -31,8 +31,8 @@
       "Default": "172.31.0.0/20"
     },
 
-    "PublicSubnetB0Cidr" : {
-      "Description" : " The IP address range, in CIDR format, for the availability zone B public subnet.",
+    "PublicSubnet1CIdr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone 1 public subnet.",
       "Type": "String",
       "MinLength": "9",
       "MaxLength": "18",
@@ -41,8 +41,8 @@
       "Default": "172.31.16.0/20"
     },
 
-    "PublicSubnetC0Cidr" : {
-      "Description" : " The IP address range, in CIDR format, for the availability zone C public subnet.",
+    "PublicSubnet2CIdr" : {
+      "Description" : " The IP address range, in CIDR format, for the availability zone 2 public subnet.",
       "Type": "String",
       "MinLength": "9",
       "MaxLength": "18",
@@ -153,11 +153,12 @@
       }
     },
 
-    "PublicSubnetA0" : {
+    "PublicSubnet0" : {
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
-        "AvailabilityZone" : "us-east-1a",
-        "CidrBlock" : { "Ref" : "PublicSubnetA0Cidr" },
+        "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+        "CidrBlock" : { "Ref" : "PublicSubnet0CIdr" },
+        "MapPublicIpOnLaunch" : true,
         "Tags" : [
           { "Key" : "Network", "Value" : "Public" },
           { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -169,27 +170,28 @@
       }
     },
 
-    "PublicSubnetA0RouteTableAssociation" : {
+    "PublicSubnet0RouteTableAssociation" : {
       "Type" : "AWS::EC2::SubnetRouteTableAssociation",
       "Properties" : {
         "RouteTableId" : { "Ref" : "PublicRouteTable" },
-        "SubnetId" : { "Ref" : "PublicSubnetA0" }
+        "SubnetId" : { "Ref" : "PublicSubnet0" }
       }
     },
 
-    "PublicSubnetA0NetworkAclAssociation" : {
+    "PublicSubnet0NetworkAclAssociation" : {
       "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
       "Properties" : {
         "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
-        "SubnetId" : { "Ref" : "PublicSubnetA0" }
+        "SubnetId" : { "Ref" : "PublicSubnet0" }
       }
     },
 
-    "PublicSubnetB0" : {
+    "PublicSubnet1" : {
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
-        "AvailabilityZone" : "us-east-1b",
-        "CidrBlock" : { "Ref" : "PublicSubnetB0Cidr" },
+        "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+        "CidrBlock" : { "Ref" : "PublicSubnet1CIdr" },
+        "MapPublicIpOnLaunch" : true,
         "Tags" : [
           { "Key" : "Network", "Value" : "Public" },
           { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -201,27 +203,28 @@
       }
     },
 
-    "PublicSubnetB0RouteTableAssociation" : {
+    "PublicSubnet1RouteTableAssociation" : {
       "Type" : "AWS::EC2::SubnetRouteTableAssociation",
       "Properties" : {
         "RouteTableId" : { "Ref" : "PublicRouteTable" },
-        "SubnetId" : { "Ref" : "PublicSubnetB0" }
+        "SubnetId" : { "Ref" : "PublicSubnet1" }
       }
     },
 
-    "PublicSubnetB0NetworkAclAssociation" : {
+    "PublicSubnet1NetworkAclAssociation" : {
       "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
       "Properties" : {
         "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
-        "SubnetId" : { "Ref" : "PublicSubnetB0" }
+        "SubnetId" : { "Ref" : "PublicSubnet1" }
       }
     },
 
-    "PublicSubnetC0" : {
+    "PublicSubnet2" : {
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
-        "AvailabilityZone" : "us-east-1c",
-        "CidrBlock" : { "Ref" : "PublicSubnetC0Cidr" },
+        "AvailabilityZone": { "Fn::Select": [ "2", { "Fn::GetAZs": "" } ] },
+        "CidrBlock" : { "Ref" : "PublicSubnet2CIdr" },
+        "MapPublicIpOnLaunch" : true,
         "Tags" : [
           { "Key" : "Network", "Value" : "Public" },
           { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -233,19 +236,19 @@
       }
     },
 
-    "PublicSubnetC0RouteTableAssociation" : {
+    "PublicSubnet2RouteTableAssociation" : {
       "Type" : "AWS::EC2::SubnetRouteTableAssociation",
       "Properties" : {
         "RouteTableId" : { "Ref" : "PublicRouteTable" },
-        "SubnetId" : { "Ref" : "PublicSubnetC0" }
+        "SubnetId" : { "Ref" : "PublicSubnet2" }
       }
     },
 
-    "PublicSubnetC0NetworkAclAssociation" : {
+    "PublicSubnet2NetworkAclAssociation" : {
       "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
       "Properties" : {
         "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
-        "SubnetId" : { "Ref" : "PublicSubnetC0" }
+        "SubnetId" : { "Ref" : "PublicSubnet2" }
       }
     }
 
@@ -256,21 +259,29 @@
       "Value" : { "Ref" : "VPC" },
       "Description" : "VPC ID"
     },
-    "PublicSubnetA0" : {
-      "Value" : { "Ref" : "PublicSubnetA0" },
-      "Description" : "ID of the public subnet"
+    "PublicSubnet0" : {
+      "Value" : { "Ref" : "PublicSubnet0" },
+      "Description" : "ID of the first public subnet"
     },
-    "PublicSubnetB0" : {
-      "Value" : { "Ref" : "PublicSubnetB0" },
-      "Description" : "ID of the public subnet"
+    "PublicSubnet0AZ" : {
+      "Value" : { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+      "Description" : "AZ of the first public subnet"
     },
-    "PublicSubnetC0" : {
-      "Value" : { "Ref" : "PublicSubnetC0" },
-      "Description" : "ID of the public subnet"
+    "PublicSubnet1" : {
+      "Value" : { "Ref" : "PublicSubnet1" },
+      "Description" : "ID of the second public subnet"
     },
-    "BlankSpace" : {
-      "Value" : "Empty space",
-      "Description" : "Empty space so easier to copy other outputs."
+    "PublicSubnet1AZ" : {
+      "Value" : { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+      "Description" : "AZ of the second public subnet"
+    },
+    "PublicSubnet2" : {
+      "Value" : { "Ref" : "PublicSubnet2" },
+      "Description" : "ID of the third public subnet"
+    },
+    "PublicSubnet2AZ" : {
+      "Value" : { "Fn::Select": [ "2", { "Fn::GetAZs": "" } ] },
+      "Description" : "AZ of the third public subnet"
     }
   }
 }

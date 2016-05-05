@@ -38,14 +38,26 @@
             "AllowedPattern" : "ELBSecurityPolicy-[0-9]{4,4}-[0-9]{2,2}"
         },
 
+        "PrivateSubnet0" : {
+            "Description" : "ID of the private subnet where the Web App instances will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "PrivateSubnet1" : {
+            "Description" : "ID of the private subnet where the Web App instances will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
         "PublicSubnet0" : {
-            "Description" : "ID of the public subnet where the ELB and Web App instances will go.",
+            "Description" : "ID of the public subnet where the ELB will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "PublicSubnet1" : {
-            "Description" : "ID of the public subnet where the ELB and Web App instances will go.",
+            "Description" : "ID of the public subnet where the ELB will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
@@ -430,7 +442,7 @@
                     { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
                 "LoadBalancerNames" : [ { "Ref" : "WebAppElasticLoadBalancer" } ],
-                "VPCZoneIdentifier" : [{ "Ref" : "PublicSubnet0" }, { "Ref" : "PublicSubnet1" }]
+                "VPCZoneIdentifier" : [{ "Ref" : "PrivateSubnet0" }, { "Ref" : "PrivateSubnet1" }]
             },
             "CreationPolicy" : {
                 "ResourceSignal" : {
