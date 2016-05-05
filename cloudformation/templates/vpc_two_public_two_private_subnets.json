@@ -358,6 +358,7 @@
             "Properties" : {
                 "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PublicSubnet0Cidr" },
+                "MapPublicIpOnLaunch" : true,
                 "Tags" : [
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -390,6 +391,7 @@
             "Properties" : {
                 "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PublicSubnet1Cidr" },
+                "MapPublicIpOnLaunch" : true,
                 "Tags" : [
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -516,6 +518,7 @@
             "Properties" : {
                 "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PrivateSubnet0Cidr" },
+                "MapPublicIpOnLaunch" : false,
                 "Tags" : [
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -647,6 +650,7 @@
             "Properties" : {
                 "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PrivateSubnet1Cidr" },
+                "MapPublicIpOnLaunch" : false,
                 "Tags" : [
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
@@ -672,22 +676,42 @@
                 "NetworkAclId" : { "Ref" : "Private1NetworkAcl" },
                 "SubnetId" : { "Ref" : "PrivateSubnet1" }
             }
+        },
+
+        "SshBastionSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Access to the SSH Bastion host.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "CidrIp" : { "Ref" : "HomeNetwork0CIDR" }
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR" }
+                    }],
+                "SecurityGroupEgress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "CidrIp" : { "Ref" : "VpcCidr" }
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VPC" }
+            }
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     },
 
     "Outputs" : {
@@ -728,6 +752,10 @@
         "PublicSubnet1AZ" : {
             "Value" : { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
             "Description" : "AZ of the second public subnet"
+        },
+
+        "SshBastionSecurityGroupId" : {
+            "Value" : { "Ref" : "SshBastionSecurityGroup" }
         }
     }
 }

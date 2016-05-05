@@ -12,11 +12,13 @@ def main():
 	parser.add_argument('-b', '--buckets', action='store', metavar='<S3 Bucket>', nargs='+',
 						dest='bucket_filter', required=False,
 						help='Specific S3 buckets to check the size of')
-	parser.add_argument('-d', '--debug', action="store_const", dest="loglevel", const=logging.DEBUG,
-						help="Set log level to debug",
-						default=logging.INFO)
-	parser.add_argument('-v', '--verbose', action="store_const", dest="loglevel", const=logging.INFO,
-						help="Set log level to verbose")
+
+	loglevel_group = parser.add_mutually_exclusive_group()
+	loglevel_group.add_argument('-d', '--debug', action="store_const", dest="loglevel", const=logging.DEBUG,
+								help="Set log level to debug",
+								default=logging.INFO)
+	loglevel_group.add_argument('-v', '--verbose', action="store_const", dest="loglevel", const=logging.INFO,
+								help="Set log level to verbose")
 	args = parser.parse_args()
 
 	# Variables

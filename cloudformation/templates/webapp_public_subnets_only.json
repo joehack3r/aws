@@ -324,6 +324,15 @@
                             "apt" : {
                                 "nginx" : []
                             }
+                        },
+                        "services" : {
+                            "sysvinit" : {
+                                "nginx" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "files" : ["/etc/nginx/nginx.conf"]
+                                }
+                            }
                         }
                     },
 
@@ -379,7 +388,7 @@
                     "pip install --upgrade awscli\n",
 
                     "# CodeDeploy Agent\n",
-                    "apt-get install -y ruby2.0\n",
+                    "apt-get install -y ruby2\n",
                     "aws s3 cp s3://aws-codedeploy-us-east-1/latest/install /tmp --region ", { "Ref" : "AWS::Region" }, "\n",
                     "chmod +x /tmp/install\n",
                     "/tmp/install auto\n",
