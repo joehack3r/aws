@@ -495,7 +495,7 @@
                 }
             },
             "Properties" : {
-                "AssociatePublicIpAddress" : "True",
+                "AssociatePublicIpAddress" : "False",
                 "BlockDeviceMappings" : [
                     {
                      "DeviceName" : "/dev/sda1",

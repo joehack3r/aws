@@ -383,7 +383,7 @@
                 }
             },
             "Properties" : {
-                "AssociatePublicIpAddress" : "True",
+                "AssociatePublicIpAddress" : "False",
                 "IamInstanceProfile" : { "Ref" : "WebAppInstanceProfile" },
                 "ImageId" : { "Ref" : "UbuntuAmi" },
                 "InstanceMonitoring" : "false",
