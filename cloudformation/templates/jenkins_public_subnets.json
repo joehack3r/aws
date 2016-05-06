@@ -381,7 +381,10 @@
                             "4mount_jenkins_home_dir" : {
                                 "command" : "mount /dev/xvdf /var/lib/jenkins"
                             },
-                            "5add_jenkins_home_dir_fstab" : {
+                            "5chown_jenkins_home_dir" : {
+                                "command" : "chown --recursive jenkins:jenkins /var/lib/jenkins"
+                            },
+                            "6add_jenkins_home_dir_fstab" : {
                                 "command" : "echo '/dev/xvdf /var/lib/jenkins ext4 defaults 0 0' >> /etc/fstab",
                                 "test" : "grep --files-without-match jenkins /etc/fstab | grep fstab"
                             }
@@ -448,6 +451,20 @@
                             },
                             "python" : {
                                 "boto3" : []
+                            }
+                        },
+                        "services" : {
+                            "sysvinit" : {
+                                "jenkins" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "packages" : { "apt" : ["jenkins"] }
+                                },
+                                "nginx" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "files" : ["/etc/nginx/nginx.conf"]
+                                }
                             }
                         }
                     },
