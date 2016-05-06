@@ -109,8 +109,8 @@
             "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
-        "UbuntuAmi" : {
-            "Description" : "Ubuntu AMI.",
+        "Ubuntu14.04Ami" : {
+            "Description" : "Ubuntu 14.04 LTS AMI. Template does not work with Ubuntu 16.04 LTS.",
             "Type" : "AWS::EC2::Image::Id",
             "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
         },
@@ -429,7 +429,7 @@
                                     "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
                                     "action=/usr/local/bin/cfn-init -v ",
                                     " --stack ", { "Ref" : "AWS::StackName" },
-                                    " --resource JenkinsLaunchConfiguration ",
+                                    " --resource JenkinsLaunchConfig ",
                                     " --configsets subsequent_installs ",
                                     " --region ", { "Ref" : "AWS::Region" }, "\n",
                                     "runas=root\n"
@@ -497,7 +497,7 @@
                     }
                 ],
                 "IamInstanceProfile" : { "Ref" : "JenkinsInstanceProfile" },
-                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "ImageId" : { "Ref" : "Ubuntu14.04Ami" },
                 "InstanceMonitoring" : "false",
                 "InstanceType" : { "Ref" : "JenkinsInstanceType" },
                 "KeyName" : { "Ref" : "KeyName" },
