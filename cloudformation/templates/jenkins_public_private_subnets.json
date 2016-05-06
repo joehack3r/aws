@@ -115,7 +115,7 @@
             "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
-        "Ubuntu14.04Ami" : {
+        "Ubuntu1404Ami" : {
             "Description" : "Ubuntu 14.04 LTS AMI. Template does not work with Ubuntu 16.04 LTS.",
             "Type" : "AWS::EC2::Image::Id",
             "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
@@ -503,7 +503,7 @@
                     }
                 ],
                 "IamInstanceProfile" : { "Ref" : "JenkinsInstanceProfile" },
-                "ImageId" : { "Ref" : "Ubuntu14.04Ami" },
+                "ImageId" : { "Ref" : "Ubuntu1404Ami" },
                 "InstanceMonitoring" : "false",
                 "InstanceType" : { "Ref" : "JenkinsInstanceType" },
                 "KeyName" : { "Ref" : "KeyName" },
