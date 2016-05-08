@@ -196,6 +196,11 @@ if 'StacksToCreateOrUpdate' in product_definition:
             else:
                 stack_capabilities = []
 
+            if 'DisableRollback' in stack[stack_name]['Properties']:
+                disable_rollback = stack[stack_name]['Properties']['DisableRollback']
+            else:
+                disable_rollback = False
+
             if 'Parameters' in template_body_json:
                 for parameter in template_body_json['Parameters']:
                     if parameter in parameter_values.keys():
@@ -241,7 +246,8 @@ if 'StacksToCreateOrUpdate' in product_definition:
                         StackName=stack_name,
                         TemplateBody=template_body_string,
                         Parameters=stack_parameters,
-                        Capabilities=stack_capabilities
+                        Capabilities=stack_capabilities,
+                        DisableRollback=disable_rollback
                     )
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == 'ValidationError':

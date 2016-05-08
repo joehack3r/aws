@@ -387,10 +387,7 @@
                             "4mount_jenkins_home_dir" : {
                                 "command" : "mount /dev/xvdf /var/lib/jenkins"
                             },
-                            "5chown_jenkins_home_dir" : {
-                                "command" : "chown --recursive jenkins:jenkins /var/lib/jenkins"
-                            },
-                            "6add_jenkins_home_dir_fstab" : {
+                            "5add_jenkins_home_dir_fstab" : {
                                 "command" : "echo '/dev/xvdf /var/lib/jenkins ext4 defaults 0 0' >> /etc/fstab",
                                 "test" : "grep --files-without-match jenkins /etc/fstab | grep fstab"
                             }
@@ -402,6 +399,17 @@
                             "/etc/apt/sources.list.d/jenkins.list" : {
                                 "content" : "deb http://pkg.jenkins-ci.org/debian binary/",
                                 "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+                            "/usr/sbin/policy-rc.d" : {
+                                "content" : { "Fn::Join" : ["", [
+                                "#!/bin/sh\n",
+                                "# https://major.io/2014/06/26/install-debian-packages-without-starting-daemons/ \n",
+                                "echo \"All runlevel operations denied by policy\" >&2\n",
+                                "exit 101\n"
+                            ]]},
+                                "mode"    : "000755",
                                 "owner"   : "root",
                                 "group"   : "root"
                             }
@@ -457,6 +465,15 @@
                             },
                             "python" : {
                                 "boto3" : []
+                            }
+                        },
+                        "commands" : {
+                            "1chown_jenkins_home_dir" : {
+                                "command" : "chown --recursive jenkins:jenkins /var/lib/jenkins"
+                            },
+                            "2remove_policy-rc.d" : {
+                                "command" : "rm /usr/sbin/policy-rc.d",
+                                "test" : "test -e /usr/sbin/policy-rc.d"
                             }
                         },
                         "services" : {
