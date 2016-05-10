@@ -1,7 +1,7 @@
 		"AMI" : {
 			"Description" : "AMI Id for the Launch Configuration",
-			"Type" : "String",
-			"AllowedPattern" : "ami-[0-9a-f]{8,8}"
+			"Type" : "AWS::EC2::Image::Id",
+			"AllowedPattern" : "^ami-(?=[0-9a-f]*$)(?:.{8})$"
 		},
 		"VpcSecurityGroupIds" : {
 			"Description" : "",

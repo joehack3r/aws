@@ -16,24 +16,23 @@
 
 		"AnsibleAMI" : {
 			"Description" : "AMI for the Ansible server - typically latest Ubuntu LTS image identified from http://cloud.ubuntu.com/ami/",
-			"Type" : "String",
-			"AllowedPattern" : "ami-[0-9a-f]{8,8}"
+			"Type" : "AWS::EC2::Image::Id",
+			"AllowedPattern" : "^ami-(?=[0-9a-f]*$)(?:.{8})$"
 		},
 
 		"AnsibleInstanceType" : {
 			"Description" : "EC2 instance type",
 			"Type" : "String",
-			"AllowedValues" : ["t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","m3.xlarge","m3.2xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge","hi1.4xlarge"],
 			"ConstraintDescription" : "Must be a valid EC2 instance type."
 		},
 
 		"AnsibleInstanceCountMin" : {
-			"Description" : "Min size of instances in auto scaling group",
+			"Description" : "Min number of instances in auto scaling group",
 			"Type" : "String"
 		},
 
 		"AnsibleInstanceCountMax" : {
-			"Description" : "Max size of instances in auto scaling group",
+			"Description" : "Max number of instances in auto scaling group",
 			"Type" : "String"
 		},
 

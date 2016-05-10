@@ -24,7 +24,8 @@
 
         "PublicSubnet0" : {
             "Description" : "ID of the public subnet where SSH Bastion instance will go.",
-            "Type" : "AWS::EC2::Subnet::Id"
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "SshBastionInstanceType" : {
@@ -48,17 +49,20 @@
 
         "SshBastionSecurityGroupId" : {
             "Description" : "Security group id where the bastion host server resides.",
-            "Type" : "AWS::EC2::SecurityGroup::Id"
+            "Type" : "AWS::EC2::SecurityGroup::Id",
+            "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "UbuntuAmi" : {
             "Description" : "Ubuntu AMI. Should replace with hardened AMI.",
-            "Type" : "AWS::EC2::Image::Id"
+            "Type" : "AWS::EC2::Image::Id",
+            "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "VpcId" : {
             "Description" : "Physical ID of the VPC.",
-            "Type" : "AWS::EC2::VPC::Id"
+            "Type" : "AWS::EC2::VPC::Id",
+            "AllowedPattern": "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
         }
     },
 
