@@ -259,7 +259,7 @@
                                 "arn:aws:s3:::codedeploydemobucket/*",
                                 "arn:aws:s3:::aws-codedeploy-us-east-1/*",
                                 "arn:aws:s3:::aws-codedeploy-us-west-2/*",
-                                "arn:aws:s3:::aws-codedeploy-us-west-1/*",        
+                                "arn:aws:s3:::aws-codedeploy-us-west-1/*",
                                 "arn:aws:s3:::aws-codedeploy-eu-west-1/*",
                                 "arn:aws:s3:::aws-codedeploy-eu-central-1/*",
                                 "arn:aws:s3:::aws-codedeploy-ap-southeast-1/*",
@@ -311,7 +311,7 @@
                                 "content" : { "Fn::Join" : ["", [
                                     "[cfn-auto-reloader-hook]\n",
                                     "triggers=post.update\n",
-                                    "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "path=Resources.WebAppLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
                                     "action=/usr/local/bin/cfn-init -v ",
                                     " --stack ", { "Ref" : "AWS::StackName" },
                                     " --resource WebAppLaunchConfig ",
@@ -392,7 +392,9 @@
                     "pip install --upgrade awscli\n",
 
                     "# CodeDeploy Agent\n",
-                    "apt-get install -y ruby2\n",
+                    "# No Ubuntu 16.04 support as of 5/14/16. Taking steps to prepare for Ubuntu 16.04 support.\n",
+                    "# Different versions of Ubuntu have different ruby package names\n",
+                    "for i in ruby2.0 ruby; do apt-get --yes install $i; done\n",
                     "aws s3 cp s3://aws-codedeploy-us-east-1/latest/install /tmp --region ", { "Ref" : "AWS::Region" }, "\n",
                     "chmod +x /tmp/install\n",
                     "/tmp/install auto\n",

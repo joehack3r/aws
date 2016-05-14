@@ -437,7 +437,7 @@
                                 "content" : { "Fn::Join" : ["", [
                                     "[cfn-auto-reloader-hook]\n",
                                     "triggers=post.update\n",
-                                    "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "path=Resources.JenkinsLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
                                     "action=/usr/local/bin/cfn-init -v ",
                                     " --stack ", { "Ref" : "AWS::StackName" },
                                     " --resource JenkinsLaunchConfig ",

@@ -1,7 +1,7 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
 
-    "Description" : "ELB and WebApp. WebApp is in an AutoScalingGroup.",
+    "Description" : "ELB and Node.js. Node.js is in an AutoScalingGroup.",
 
     "Parameters" : {
 
@@ -39,13 +39,13 @@
         },
 
         "PrivateSubnet0" : {
-            "Description" : "ID of the private subnet where the Web App instances will go.",
+            "Description" : "ID of the private subnet where the Node.js instances will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "PrivateSubnet1" : {
-            "Description" : "ID of the private subnet where the Web App instances will go.",
+            "Description" : "ID of the private subnet where the Node.js instances will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
@@ -69,7 +69,7 @@
         },
 
         "UbuntuAmi" : {
-            "Description" : "AMI ID for Ubuntu image to be used for the Web App.",
+            "Description" : "AMI ID for Ubuntu image to be used for the Node.js server.",
             "Type" : "AWS::EC2::Image::Id",
             "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
         },
@@ -80,25 +80,25 @@
             "AllowedPattern": "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
-        "WebAppDnsAlias" : {
+        "NodejsDnsAlias" : {
             "Description" : "DNS alias for the Elastic Load Balancer.",
             "Type" : "String"
         },
 
-        "WebAppInstanceCountMin" : {
+        "NodejsInstanceCountMin" : {
             "Description" : "Minimum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "1"
         },
 
-        "WebAppInstanceCountMax" : {
+        "NodejsInstanceCountMax" : {
             "Description" : "Maximum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "2"
         },
 
-        "WebAppInstanceType" : {
-            "Description" : "Web App EC2 instance type.",
+        "NodejsInstanceType" : {
+            "Description" : "Node.js EC2 instance type.",
             "Type" : "String",
             "ConstraintDescription" : "Must be a valid EC2 instance type.",
             "Default" : "t2.nano"
@@ -125,10 +125,10 @@
             }
         },
 
-        "WebAppSecurityGroup" : {
+        "NodejsSecurityGroup" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
-                "GroupDescription" : "Web server security group.",
+                "GroupDescription" : "Node.js server security group.",
                 "SecurityGroupIngress" : [{
                     "IpProtocol" : "tcp",
                     "FromPort" : "22",
@@ -150,21 +150,21 @@
             }
         },
 
-        "ElbEgressToWebAppPort80" : {
+        "ElbEgressToNodejsPort80" : {
             "Type" : "AWS::EC2::SecurityGroupEgress",
             "Properties" : {
                 "GroupId" : { "Ref" : "ElbSecurityGroup" },
                 "IpProtocol" : "tcp",
                 "FromPort" : "80",
                 "ToPort" : "80",
-                "DestinationSecurityGroupId" : { "Ref" : "WebAppSecurityGroup" }
+                "DestinationSecurityGroupId" : { "Ref" : "NodejsSecurityGroup" }
             }
         },
 
-        "WebAppIngressFromElbPort80" : {
+        "NodejsIngressFromElbPort80" : {
             "Type" : "AWS::EC2::SecurityGroupIngress",
             "Properties" : {
-                "GroupId" : { "Ref" : "WebAppSecurityGroup" },
+                "GroupId" : { "Ref" : "NodejsSecurityGroup" },
                 "IpProtocol" : "tcp",
                 "FromPort" : "80",
                 "ToPort" : "80",
@@ -172,21 +172,21 @@
             }
         },
 
-        "ElbEgressToWebAppPort443" : {
+        "ElbEgressToNodejsPort443" : {
             "Type" : "AWS::EC2::SecurityGroupEgress",
             "Properties" : {
                 "GroupId" : { "Ref" : "ElbSecurityGroup" },
                 "IpProtocol" : "tcp",
                 "FromPort" : "443",
                 "ToPort" : "443",
-                "DestinationSecurityGroupId" : { "Ref" : "WebAppSecurityGroup" }
+                "DestinationSecurityGroupId" : { "Ref" : "NodejsSecurityGroup" }
             }
         },
 
-        "WebAppIngressFromElbPort443" : {
+        "NodejsIngressFromElbPort443" : {
             "Type" : "AWS::EC2::SecurityGroupIngress",
             "Properties" : {
-                "GroupId" : { "Ref" : "WebAppSecurityGroup" },
+                "GroupId" : { "Ref" : "NodejsSecurityGroup" },
                 "IpProtocol" : "tcp",
                 "FromPort" : "443",
                 "ToPort" : "443",
@@ -194,13 +194,13 @@
             }
         },
 
-        "WebAppElasticLoadBalancer" : {
+        "NodejsElasticLoadBalancer" : {
             "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
             "DependsOn" : [ "ElbSecurityGroup" ],
             "Properties" : {
                 "ConnectionDrainingPolicy" : { "Enabled" : "True" },
                 "CrossZone" : "true",
-                "LoadBalancerName" : { "Fn::Join" : [ "", [ "WebApp-", { "Ref" : "Environment" }, "-Elb" ]]},
+                "LoadBalancerName" : { "Fn::Join" : [ "", [ "Nodejs-", { "Ref" : "Environment" }, "-Elb" ]]},
                 "Listeners" : [ {
                     "LoadBalancerPort" : "80",
                     "Protocol"         : "HTTP",
@@ -240,7 +240,7 @@
             }
         },
 
-        "WebAppIamRole" : {
+        "NodejsIamRole" : {
             "Type" : "AWS::IAM::Role",
             "Properties" : {
                 "AssumeRolePolicyDocument" : {
@@ -284,22 +284,22 @@
             }
         },
 
-        "WebAppInstanceProfile" : { 
+        "NodejsInstanceProfile" : { 
                 "Type" : "AWS::IAM::InstanceProfile",
                 "Properties" : {
                         "Path" : "/",
-                        "Roles" : [ { "Ref" : "WebAppIamRole" } ]
+                        "Roles" : [ { "Ref" : "NodejsIamRole" } ]
                 }
         },
 
-        "WebAppLaunchConfig" : {
+        "NodejsLaunchConfig" : {
             "Type" : "AWS::AutoScaling::LaunchConfiguration",
-            "DependsOn" : [ "WebAppElasticLoadBalancer" ],
+            "DependsOn" : [ "NodejsElasticLoadBalancer" ],
             "Metadata" : {
                 "Comment" : "Install Nginx and serve a single static file.",
                 "AWS::CloudFormation::Init" : {
                     "configSets" : {
-                        "first_install" : [ "install_cfn", "install_packages", 
+                        "first_install" : [ "install_cfn", "install_packages", "install_nodejs",
                                             "download_static_files", "verify_instance_health"],
                         "subsequent_installs" : [ "download_static_files", "verify_instance_health"]
                     },
@@ -323,10 +323,10 @@
                                 "content" : { "Fn::Join" : ["", [
                                     "[cfn-auto-reloader-hook]\n",
                                     "triggers=post.update\n",
-                                    "path=Resources.WebAppLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "path=Resources.NodejsLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
                                     "action=/usr/local/bin/cfn-init -v ",
                                     " --stack ", { "Ref" : "AWS::StackName" },
-                                    " --resource WebAppLaunchConfig ",
+                                    " --resource NodejsLaunchConfig ",
                                     " --configsets subsequent_installs ",
                                     " --region ", { "Ref" : "AWS::Region" }, "\n",
                                     "runas=root\n"
@@ -352,6 +352,17 @@
                         }
                     },
 
+                    "install_nodejs" : {
+                        "commands" : {
+                            "1add_nodejs_ppa" : {
+                                "command" : "curl -sL https://deb.nodesource.com/setup_6.x | bash -"
+                            },
+                            "2install_nodejs" : {
+                                "command" : "apt-get install -y nodejs"
+                            }
+                        }
+                    },
+
                     "download_static_files" : {
                         "files" : {
                             "/usr/share/nginx/html/index.html" : {
@@ -371,7 +382,7 @@
                                 "command" : { "Fn::Join" : ["", [ 
                                     "until [ \"$state\" = \"\\\"InService\\\"\" ]; do ",
                                     "  state=$(aws --region ", { "Ref" : "AWS::Region" }, " elb describe-instance-health ",
-                                    "              --load-balancer-name ", { "Ref" : "WebAppElasticLoadBalancer" }, 
+                                    "              --load-balancer-name ", { "Ref" : "NodejsElasticLoadBalancer" }, 
                                     "              --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
                                     "              --query InstanceStates[0].State); ",
                                     "  sleep 10; ",
@@ -384,12 +395,12 @@
             },
             "Properties" : {
                 "AssociatePublicIpAddress" : "False",
-                "IamInstanceProfile" : { "Ref" : "WebAppInstanceProfile" },
+                "IamInstanceProfile" : { "Ref" : "NodejsInstanceProfile" },
                 "ImageId" : { "Ref" : "UbuntuAmi" },
                 "InstanceMonitoring" : "false",
-                "InstanceType" : { "Ref" : "WebAppInstanceType" },
+                "InstanceType" : { "Ref" : "NodejsInstanceType" },
                 "KeyName" : { "Ref" : "KeyName" },
-                "SecurityGroups" : [ { "Ref" : "WebAppSecurityGroup" } ],
+                "SecurityGroups" : [ { "Ref" : "NodejsSecurityGroup" } ],
                 "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
                     "#!/bin/bash -v\n",
 
@@ -413,13 +424,13 @@
 
                     "/usr/local/bin/cfn-init -v ",
                     " --stack ", { "Ref" : "AWS::StackName" },
-                    " --resource WebAppLaunchConfig ",
+                    " --resource NodejsLaunchConfig ",
                     " --configsets first_install",
                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
                     "/usr/local/bin/cfn-signal -e $? ",
                     " --stack ", { "Ref" : "AWS::StackName" },
-                    " --resource WebAppAutoScalingGroup ",
+                    " --resource NodejsAutoScalingGroup ",
                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
                      "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
@@ -430,20 +441,20 @@
             }
         },
 
-        "WebAppAutoScalingGroup" : {
+        "NodejsAutoScalingGroup" : {
             "Type" : "AWS::AutoScaling::AutoScalingGroup",
             "Properties" : {
-                "LaunchConfigurationName" : { "Ref" : "WebAppLaunchConfig" },
-                "MinSize" : { "Ref" : "WebAppInstanceCountMin" },
-                "MaxSize" : { "Ref" : "WebAppInstanceCountMax" },
+                "LaunchConfigurationName" : { "Ref" : "NodejsLaunchConfig" },
+                "MinSize" : { "Ref" : "NodejsInstanceCountMin" },
+                "MaxSize" : { "Ref" : "NodejsInstanceCountMax" },
                 "Tags" : [
-                    { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/myProduct/", { "Ref" : "Environment" }, "/webapp" ]]}, "PropagateAtLaunch" : "true" },
+                    { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/myProduct/", { "Ref" : "Environment" }, "/nodejs" ]]}, "PropagateAtLaunch" : "true" },
                     { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
                     { "Key" : "product",     "Value" : "myProduct",                    "PropagateAtLaunch" : "true" },
-                    { "Key" : "role",        "Value" : "webapp",            "PropagateAtLaunch" : "true" },
+                    { "Key" : "role",        "Value" : "nodejs",            "PropagateAtLaunch" : "true" },
                     { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "LoadBalancerNames" : [ { "Ref" : "WebAppElasticLoadBalancer" } ],
+                "LoadBalancerNames" : [ { "Ref" : "NodejsElasticLoadBalancer" } ],
                 "VPCZoneIdentifier" : [{ "Ref" : "PrivateSubnet0" }, { "Ref" : "PrivateSubnet1" }]
             },
             "CreationPolicy" : {
@@ -471,10 +482,10 @@
                     "Comment" : "DNS entry for ELB.",
                     "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
                     "Name" : {
-                        "Fn::Join" : [ "", [ { "Ref" : "WebAppDnsAlias" }, ".", { "Ref" : "HostedZone" } ,"." ]]},
+                        "Fn::Join" : [ "", [ { "Ref" : "NodejsDnsAlias" }, ".", { "Ref" : "HostedZone" } ,"." ]]},
                     "AliasTarget" : { 
-                        "DNSName" : { "Fn::Join" : [ "", [ { "Fn::GetAtt" : [ "WebAppElasticLoadBalancer" , "DNSName" ] }, "." ]]},
-                        "HostedZoneId" : { "Fn::GetAtt" : [ "WebAppElasticLoadBalancer", "CanonicalHostedZoneNameID" ] }
+                        "DNSName" : { "Fn::Join" : [ "", [ { "Fn::GetAtt" : [ "NodejsElasticLoadBalancer" , "DNSName" ] }, "." ]]},
+                        "HostedZoneId" : { "Fn::GetAtt" : [ "NodejsElasticLoadBalancer", "CanonicalHostedZoneNameID" ] }
                     },
                 "Type" : "A"
             }
@@ -482,9 +493,9 @@
     },
 
     "Outputs" : {
-        "WebAppURL" : {
-            "Description" : "URL to access WebApp.",
-            "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "WebAppDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
+        "NodejsURL" : {
+            "Description" : "URL to access Nodejs.",
+            "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "NodejsDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
         }
     }
 }
