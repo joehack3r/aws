@@ -62,10 +62,10 @@ VpcCountLimit=5
 # Get current usage
 EbsSnapshotCountUsed=`aws ec2 describe-snapshots --owner-ids self --region $region --output json | grep SnapshotId | wc -l`
 EbsVolumeCountUsed=`aws ec2 describe-volumes --region $region --output json | grep VolumeId | tr --delete [:blank:] | uniq | wc -l`
-EbsStandardStorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=standard --region $region --output json | grep Size | awk '{print $2}' | awk '{sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
-EbsGp2StorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=gp2 --region $region --output json | grep Size | awk '{print $2}' | awk '{sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
-EbsIo1StorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=io1 --region $region --output json | grep Size | awk '{print $2}' | awk '{sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
-EbsProvisionedIopsUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=io1 --region $region --output json | grep Iops | awk '{print $2}' | awk '{sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
+EbsStandardStorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=standard --region $region --output json | grep Size | awk '{print $2}' | awk 'BEGIN {sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
+EbsGp2StorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=gp2 --region $region --output json | grep Size | awk '{print $2}' | awk 'BEGIN {sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
+EbsIo1StorageSizeUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=io1 --region $region --output json | grep Size | awk '{print $2}' | awk 'BEGIN {sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
+EbsProvisionedIopsUsed=`aws ec2 describe-volumes --filters Name=volume-type,Values=io1 --region $region --output json | grep Iops | awk '{print $2}' | awk 'BEGIN {sum=0} {sum+=$1} END {if (sum=="") print 0; else print sum}'`
 
 Ec2InstanceCountUsed=`aws ec2 describe-instances --region $region --output json | grep InstanceId | wc -l`
 Ec2SpotInstanceCountUsed=`aws ec2 describe-instances --filters Name=instance-lifecycle,Values=spot --region $region --output json | grep InstanceId | wc -l`
@@ -213,4 +213,3 @@ else
   echo "Using less than the warning level ($warningLimit%) of monitored AWS limits"
   statsd-client "my.aws.limits.error:0|g"
 fi
-
