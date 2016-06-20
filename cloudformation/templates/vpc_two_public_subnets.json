@@ -68,6 +68,7 @@
             "Properties" : {
                 "CidrBlock" : { "Ref" : "VpcCidr" },
                 "Tags" : [
+                    { "Key" : "Name", "Value" : { "Ref": "AWS::StackName" } },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -81,6 +82,7 @@
             "Type" : "AWS::EC2::InternetGateway",
             "Properties" : {
                 "Tags" : [
+                    { "Key" : "Name", "Value" : { "Ref": "AWS::StackName" } },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -102,6 +104,7 @@
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
                 "Tags" : [
+                    { "Key" : "Name", "Value" : "PublicRouteTable" },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -126,6 +129,7 @@
             "Properties" : {
                 "VpcId" : {"Ref" : "VPC"},
                 "Tags" : [
+                    { "Key" : "Name", "Value" : "PublicNetworkAcl" },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -343,6 +347,7 @@
                 "CidrBlock" : { "Ref" : "PublicSubnet1Cidr" },
                 "MapPublicIpOnLaunch" : true,
                 "Tags" : [
+                    { "Key" : "Name", "Value" : "PublicSubnet1" },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -376,6 +381,7 @@
                 "CidrBlock" : { "Ref" : "PublicSubnet2Cidr" },
                 "MapPublicIpOnLaunch" : true,
                 "Tags" : [
+                    { "Key" : "Name", "Value" : "PublicSubnet2" },
                     { "Key" : "Network", "Value" : "Public" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
