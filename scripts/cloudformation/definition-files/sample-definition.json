@@ -30,7 +30,8 @@
                 "Properties" : {
                     "Template" : "file:///path/to/aws/cloudformation/templates/file.json",
                     "AddOutputsToParameters" : true,
-                    "Capabilities" : ["CAPABILITY_IAM"]
+                    "Capabilities" : ["CAPABILITY_IAM"],
+                    "DisableRollback" : true
                 }
             }
         }

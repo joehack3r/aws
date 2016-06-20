@@ -26,7 +26,7 @@
             "Default" : "192.30.252.0/22"
         },
 
-        "HomeNetwork0CIDR" : {
+        "HomeNetwork1CIDR" : {
             "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
             "Type": "String",
             "MinLength": "9",
@@ -36,7 +36,7 @@
             "Default" : "255.255.255.255/32"
         },
 
-        "HomeNetwork1CIDR" : {
+        "HomeNetwork2CIDR" : {
             "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
             "Type": "String",
             "MinLength": "9",
@@ -97,7 +97,7 @@
             "AllowedPattern" : "ELBSecurityPolicy-[0-9]{4,4}-[0-9]{2,2}"
         },
 
-        "PublicSubnet0" : {
+        "PublicSubnet1" : {
             "Description" : "ID of the public subnet where the ELB and Web App instances will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
@@ -138,22 +138,22 @@
                     "IpProtocol" : "tcp",
                     "FromPort" : "80",
                     "ToPort" : "80",
-                    "CidrIp" : { "Ref" : "HomeNetwork0CIDR"}
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
                     },{
                     "IpProtocol" : "tcp",
                     "FromPort" : "443",
                     "ToPort" : "443",
-                    "CidrIp" : { "Ref" : "HomeNetwork0CIDR"}
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
                     },{
                     "IpProtocol" : "tcp",
                     "FromPort" : "80",
                     "ToPort" : "80",
-                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
+                    "CidrIp" : { "Ref" : "HomeNetwork2CIDR"}
                     },{
                     "IpProtocol" : "tcp",
                     "FromPort" : "443",
                     "ToPort" : "443",
-                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
+                    "CidrIp" : { "Ref" : "HomeNetwork2CIDR"}
                     },{
                     "IpProtocol" : "tcp",
                     "FromPort" : "443",
@@ -269,7 +269,7 @@
                     "Timeout" : "5"
                 },
                 "SecurityGroups" : [{ "Ref" : "JenkinsElbSecurityGroup" }],
-                "Subnets" : [ { "Ref" : "PublicSubnet0" } ],
+                "Subnets" : [ { "Ref" : "PublicSubnet1" } ],
                 "Tags" : [
                     { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
                     { "Key" : "product",     "Value" : "Jenkins"              },
@@ -583,7 +583,7 @@
                     { "Key" : "role",        "Value" : "jenkins",                 "PropagateAtLaunch" : "true" },
                     { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet0" } ]
+                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet1" } ]
             },
             "CreationPolicy" : {
                 "ResourceSignal" : {

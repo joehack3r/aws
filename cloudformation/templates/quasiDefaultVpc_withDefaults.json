@@ -21,7 +21,7 @@
       "Default": "172.31.0.0/16"
     },
 
-    "PublicSubnet0CIdr" : {
+    "PublicSubnet1CIdr" : {
       "Description" : " The IP address range, in CIDR format, for the availability zone 0 public subnet.",
       "Type": "String",
       "MinLength": "9",
@@ -31,7 +31,7 @@
       "Default": "172.31.0.0/20"
     },
 
-    "PublicSubnet1CIdr" : {
+    "PublicSubnet2CIdr" : {
       "Description" : " The IP address range, in CIDR format, for the availability zone 1 public subnet.",
       "Type": "String",
       "MinLength": "9",
@@ -153,43 +153,10 @@
       }
     },
 
-    "PublicSubnet0" : {
-      "Type" : "AWS::EC2::Subnet",
-      "Properties" : {
-        "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
-        "CidrBlock" : { "Ref" : "PublicSubnet0CIdr" },
-        "MapPublicIpOnLaunch" : true,
-        "Tags" : [
-          { "Key" : "Network", "Value" : "Public" },
-          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
-          { "Key" : "product",     "Value" : "VPC"                    },
-          { "Key" : "role",        "Value" : "PublicSubnet"           },
-          { "Key" : "owner",       "Value" : "MyOwner"                }
-        ],
-        "VpcId" : { "Ref" : "VPC" }
-      }
-    },
-
-    "PublicSubnet0RouteTableAssociation" : {
-      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-      "Properties" : {
-        "RouteTableId" : { "Ref" : "PublicRouteTable" },
-        "SubnetId" : { "Ref" : "PublicSubnet0" }
-      }
-    },
-
-    "PublicSubnet0NetworkAclAssociation" : {
-      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
-      "Properties" : {
-        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
-        "SubnetId" : { "Ref" : "PublicSubnet0" }
-      }
-    },
-
     "PublicSubnet1" : {
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
-        "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+        "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
         "CidrBlock" : { "Ref" : "PublicSubnet1CIdr" },
         "MapPublicIpOnLaunch" : true,
         "Tags" : [
@@ -216,6 +183,39 @@
       "Properties" : {
         "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
         "SubnetId" : { "Ref" : "PublicSubnet1" }
+      }
+    },
+
+    "PublicSubnet2" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+        "CidrBlock" : { "Ref" : "PublicSubnet2CIdr" },
+        "MapPublicIpOnLaunch" : true,
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" },
+          { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+          { "Key" : "product",     "Value" : "VPC"                    },
+          { "Key" : "role",        "Value" : "PublicSubnet"           },
+          { "Key" : "owner",       "Value" : "MyOwner"                }
+        ],
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+    "PublicSubnet2RouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "SubnetId" : { "Ref" : "PublicSubnet2" }
+      }
+    },
+
+    "PublicSubnet2NetworkAclAssociation" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+        "SubnetId" : { "Ref" : "PublicSubnet2" }
       }
     },
 
@@ -259,19 +259,19 @@
       "Value" : { "Ref" : "VPC" },
       "Description" : "VPC ID"
     },
-    "PublicSubnet0" : {
-      "Value" : { "Ref" : "PublicSubnet0" },
+    "PublicSubnet1" : {
+      "Value" : { "Ref" : "PublicSubnet1" },
       "Description" : "ID of the first public subnet"
     },
-    "PublicSubnet0AZ" : {
+    "PublicSubnet1AZ" : {
       "Value" : { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
       "Description" : "AZ of the first public subnet"
     },
-    "PublicSubnet1" : {
-      "Value" : { "Ref" : "PublicSubnet1" },
+    "PublicSubnet2" : {
+      "Value" : { "Ref" : "PublicSubnet2" },
       "Description" : "ID of the second public subnet"
     },
-    "PublicSubnet1AZ" : {
+    "PublicSubnet2AZ" : {
       "Value" : { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
       "Description" : "AZ of the second public subnet"
     },

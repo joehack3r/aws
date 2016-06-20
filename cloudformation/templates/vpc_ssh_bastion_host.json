@@ -22,7 +22,7 @@
             "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
         },
 
-        "PublicSubnet0" : {
+        "PublicSubnet1" : {
             "Description" : "ID of the public subnet where SSH Bastion instance will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
@@ -87,7 +87,7 @@
                 ],
                 "Description" : "Elastic Network Interface to be used for SSH Bastion Device.",
                 "GroupSet" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
-                "SubnetId" : { "Ref" : "PublicSubnet0" }
+                "SubnetId" : { "Ref" : "PublicSubnet1" }
             }
         },
 
@@ -282,7 +282,7 @@
                     { "Key" : "role",        "Value" : "ssh-bastion",            "PropagateAtLaunch" : "true" },
                     { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet0" } ]
+                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet1" } ]
             },
             "CreationPolicy" : {
                 "ResourceSignal" : {
