@@ -464,12 +464,12 @@
             }
         },
 
-        "Private1NetworkAcl" : {
+        "PrivateAppDataNetworkacl" : {
             "Type" : "AWS::EC2::NetworkAcl",
             "Properties" : {
                 "VpcId" : {"Ref" : "VPC"},
                 "Tags" : [
-                    { "Key" : "Name", "Value" : "Private1NetworkAcl" },
+                    { "Key" : "Name", "Value" : "PrivateAppDataNetworkacl" },
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -484,7 +484,7 @@
             "Properties" : {
                 "CidrBlock" : "0.0.0.0/0",
                 "Egress" : "false",
-                "NetworkAclId" : {"Ref" : "Private1NetworkAcl"},
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
                 "PortRange" : {"From" : "0", "To" : "65535"},
                 "Protocol" : "6",
                 "RuleAction" : "allow",
@@ -497,7 +497,7 @@
             "Properties" : {
                 "CidrBlock" : "0.0.0.0/0",
                 "Egress" : "false",
-                "NetworkAclId" : {"Ref" : "Private1NetworkAcl"},
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
                 "Protocol" : "1",
                 "Icmp": {
                     "Type": "3",
@@ -513,7 +513,7 @@
             "Properties" : {
                 "CidrBlock" : "0.0.0.0/0",
                 "Egress" : "true",
-                "NetworkAclId" : {"Ref" : "Private1NetworkAcl"},
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
                 "PortRange" : {"From" : "0", "To" : "65535"},
                 "Protocol" : "6",
                 "RuleAction" : "allow",
@@ -550,7 +550,7 @@
         "PrivateSubnet1NetworkAclAssociation" : {
             "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
             "Properties" : {
-                "NetworkAclId" : { "Ref" : "Private1NetworkAcl" },
+                "NetworkAclId" : { "Ref" : "PrivateAppDataNetworkacl" },
                 "SubnetId" : { "Ref" : "PrivateSubnet1" }
             }
         },
@@ -599,63 +599,6 @@
             }
         },
 
-        "Private2NetworkAcl" : {
-            "Type" : "AWS::EC2::NetworkAcl",
-            "Properties" : {
-                "VpcId" : {"Ref" : "VPC"},
-                "Tags" : [
-                    { "Key" : "Name", "Value" : "Private2NetworkAcl" },
-                    { "Key" : "Network", "Value" : "Private" },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
-                    { "Key" : "product",     "Value" : "vpc"                    },
-                    { "Key" : "role",        "Value" : "PrivateNetworkAcl"       },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
-                ]
-            }
-        },
-
-        "InboundPrivate2AllTcpNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "CidrBlock" : "0.0.0.0/0",
-                "Egress" : "false",
-                "NetworkAclId" : {"Ref" : "Private2NetworkAcl"},
-                "PortRange" : {"From" : "0", "To" : "65535"},
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "RuleNumber" : "100"
-            }
-        },
-
-        "InboundPrivate2ICMPNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "CidrBlock" : "0.0.0.0/0",
-                "Egress" : "false",
-                "NetworkAclId" : {"Ref" : "Private2NetworkAcl"},
-                "Protocol" : "1",
-                "Icmp": {
-                    "Type": "3",
-                    "Code": "4"
-                },
-                "RuleAction" : "allow",
-                "RuleNumber" : "110"
-            }
-        },
-
-        "OutBoundPrivate2AllTcpNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "CidrBlock" : "0.0.0.0/0",
-                "Egress" : "true",
-                "NetworkAclId" : {"Ref" : "Private2NetworkAcl"},
-                "PortRange" : {"From" : "0", "To" : "65535"},
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "RuleNumber" : "100"
-            }
-        },
-
         "PrivateSubnet2" : {
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
@@ -685,7 +628,7 @@
         "PrivateSubnet2NetworkAclAssociation" : {
             "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
             "Properties" : {
-                "NetworkAclId" : { "Ref" : "Private2NetworkAcl" },
+                "NetworkAclId" : { "Ref" : "PrivateAppDataNetworkAcl" },
                 "SubnetId" : { "Ref" : "PrivateSubnet2" }
             }
         },
