@@ -1,0 +1,53 @@
+[
+    {
+        "ParameterKey" : "VpcCidr",
+        "ParameterValue" : "10.1.0.0/16"
+    },
+
+    {
+        "ParameterKey" : "PrivateApp1Subnet1Cidr",
+        "ParameterValue" : "10.1.10.0/24"
+    },
+    {
+        "ParameterKey" : "PrivateApp1Subnet2Cidr",
+        "ParameterValue" : "10.1.11.0/24"
+    },
+    {
+        "ParameterKey" : "PrivateApp1Subnet3Cidr",
+        "ParameterValue" : "10.1.12.0/24"
+    },
+    {
+        "ParameterKey" : "PrivateData1Subnet1Cidr",
+        "ParameterValue" : "10.1.20.0/24"
+    },
+    {
+        "ParameterKey" : "PrivateData1Subnet2Cidr",
+        "ParameterValue" : "10.1.21.0/24"
+    },
+    {
+        "ParameterKey" : "PrivateData1Subnet3Cidr",
+        "ParameterValue" : "10.1.22.0/24"
+    },
+
+    {
+        "ParameterKey" : "PublicDmz1Subnet1Cidr",
+        "ParameterValue" : "10.1.0.0/24"
+    },
+    {
+        "ParameterKey" : "PublicDmz1Subnet2Cidr",
+        "ParameterValue" : "10.1.1.0/24"
+    },
+    {
+        "ParameterKey" : "PublicDmz1Subnet3Cidr",
+        "ParameterValue" : "10.1.2.0/24"
+    },
+
+    {
+        "ParameterKey" : "HomeNetwork1CIDR",
+        "ParameterValue" : "255.255.255.255/32"
+    },
+    {
+        "ParameterKey" : "HomeNetwork2CIDR",
+        "ParameterValue" : "0.0.0.0/32"
+    }
+]
