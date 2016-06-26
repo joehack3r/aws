@@ -549,12 +549,12 @@
             }
         },
 
-        "Private1RouteTable" : {
+        "PrivateRouteTableThroughNatGateway1" : {
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
                 "Tags" : [
-                    { "Key" : "Name", "Value" : "Private1RouteTable" },
+                    { "Key" : "Name", "Value" : "PrivateRouteTableThroughNatGateway1" },
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -565,13 +565,13 @@
             }
         },
 
-        "Private1Route" : {
+        "PrivateRouteThroughNatGateway1" : {
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::Route",
             "Properties" : {
                 "DestinationCidrBlock" : "0.0.0.0/0",
                 "NatGatewayId" : { "Ref" : "NatGateway1" },
-                "RouteTableId" : { "Ref" : "Private1RouteTable" }
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway1" }
             }
         },
 
@@ -659,7 +659,7 @@
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private1RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway1" },
                 "SubnetId" : { "Ref" : "PrivateApp1Subnet1" }
             }
         },
@@ -690,12 +690,12 @@
             }
         },
 
-        "Private2RouteTable" : {
+        "PrivateRouteTableThroughNatGateway2" : {
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
                 "Tags" : [
-                    { "Key" : "Name", "Value" : "Private2RouteTable" },
+                    { "Key" : "Name", "Value" : "PrivateRouteTableThroughNatGateway2" },
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -706,13 +706,13 @@
             }
         },
 
-        "Private2Route" : {
+        "PrivateRouteThroughNatGateway2" : {
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::Route",
             "Properties" : {
                 "DestinationCidrBlock" : "0.0.0.0/0",
                 "NatGatewayId" : { "Ref" : "NatGateway2" },
-                "RouteTableId" : { "Ref" : "Private2RouteTable" }
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway2" }
             }
         },
 
@@ -739,7 +739,7 @@
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private2RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway2" },
                 "SubnetId" : { "Ref" : "PrivateApp1Subnet2" }
             }
         },
@@ -770,12 +770,12 @@
             }
         },
 
-        "Private3RouteTable" : {
+        "PrivateRouteTableThroughNatGateway3" : {
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::RouteTable",
             "Properties" : {
                 "Tags" : [
-                    { "Key" : "Name", "Value" : "Private3RouteTable" },
+                    { "Key" : "Name", "Value" : "PrivateRouteTableThroughNatGateway3" },
                     { "Key" : "Network", "Value" : "Private" },
                     { "Key" : "environment", "Value" : { "Ref": "Environment" } },
                     { "Key" : "product",     "Value" : "vpc"                    },
@@ -786,13 +786,13 @@
             }
         },
 
-        "Private3Route" : {
+        "PrivateRouteThroughNatGateway3" : {
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::Route",
             "Properties" : {
                 "DestinationCidrBlock" : "0.0.0.0/0",
                 "NatGatewayId" : { "Ref" : "NatGateway3" },
-                "RouteTableId" : { "Ref" : "Private3RouteTable" }
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway3" }
             }
         },
 
@@ -819,7 +819,7 @@
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private3RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway3" },
                 "SubnetId" : { "Ref" : "PrivateApp1Subnet3" }
             }
         },
@@ -917,7 +917,7 @@
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private1RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway1" },
                 "SubnetId" : { "Ref" : "PrivateData1Subnet1" }
             }
         },
@@ -954,7 +954,7 @@
             "Condition": "CreatePrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private2RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway2" },
                 "SubnetId" : { "Ref" : "PrivateData1Subnet2" }
             }
         },
@@ -1008,7 +1008,7 @@
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::SubnetRouteTableAssociation",
             "Properties" : {
-                "RouteTableId" : { "Ref" : "Private3RouteTable" },
+                "RouteTableId" : { "Ref" : "PrivateRouteTableThroughNatGateway3" },
                 "SubnetId" : { "Ref" : "PrivateData1Subnet3" }
             }
         },
