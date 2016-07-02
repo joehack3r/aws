@@ -160,7 +160,7 @@ if 'Parameters' in product_definition:
     # Existing Stacks
     if 'ExistingStacks' in product_definition['Parameters']:
         for i in range(len(product_definition['Parameters']['ExistingStacks'])):
-            if len(product_definition['Parameters']['Files'][i]) != 1:
+            if len(product_definition['Parameters']['ExistingStacks'][i]) != 1:
                 logger.critical("Invalid format: Only one object (existing stack) allowed per array element.")
                 sys.exit(1)
             for parameter_stack in product_definition['Parameters']['ExistingStacks'][i]:
