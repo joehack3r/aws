@@ -154,6 +154,7 @@
             "Type" : "AWS::EC2::VPC",
             "Properties" : {
                 "CidrBlock" : { "Ref" : "VpcCidr" },
+                "EnableDnsHostnames" : "true",
                 "Tags" : [
                     { "Key" : "Name", "Value" : { "Ref": "AWS::StackName" } },
                     { "Key" : "Network", "Value" : "Public" },
