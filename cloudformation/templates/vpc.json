@@ -500,7 +500,7 @@
             "Condition": "UseThreeAzs",
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
-                "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+                "AvailabilityZone": { "Fn::Select": [ "2", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PublicDmz1Subnet3Cidr" },
                 "MapPublicIpOnLaunch" : true,
                 "Tags" : [
@@ -801,7 +801,7 @@
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
-                "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+                "AvailabilityZone": { "Fn::Select": [ "2", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PrivateApp1Subnet3Cidr" },
                 "MapPublicIpOnLaunch" : false,
                 "Tags" : [
@@ -990,7 +990,7 @@
             "Condition": "CreateThirdAzAndPrivateVpcResources",
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
-                "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+                "AvailabilityZone": { "Fn::Select": [ "2", { "Fn::GetAZs": "" } ] },
                 "CidrBlock" : { "Ref" : "PrivateData1Subnet3Cidr" },
                 "MapPublicIpOnLaunch" : false,
                 "Tags" : [
