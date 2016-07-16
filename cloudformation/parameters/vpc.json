@@ -5,40 +5,40 @@
     },
 
     {
-        "ParameterKey" : "PrivateApp1Subnet1Cidr",
+        "ParameterKey" : "PrivateApp1Subnet0Cidr",
         "ParameterValue" : "10.1.10.0/24"
     },
     {
-        "ParameterKey" : "PrivateApp1Subnet2Cidr",
+        "ParameterKey" : "PrivateApp1Subnet1Cidr",
         "ParameterValue" : "10.1.11.0/24"
     },
     {
-        "ParameterKey" : "PrivateApp1Subnet3Cidr",
+        "ParameterKey" : "PrivateApp1Subnet2Cidr",
         "ParameterValue" : "10.1.12.0/24"
     },
     {
-        "ParameterKey" : "PrivateData1Subnet1Cidr",
+        "ParameterKey" : "PrivateData1Subnet0Cidr",
         "ParameterValue" : "10.1.20.0/24"
     },
     {
-        "ParameterKey" : "PrivateData1Subnet2Cidr",
+        "ParameterKey" : "PrivateData1Subnet1Cidr",
         "ParameterValue" : "10.1.21.0/24"
     },
     {
-        "ParameterKey" : "PrivateData1Subnet3Cidr",
+        "ParameterKey" : "PrivateData1Subnet2Cidr",
         "ParameterValue" : "10.1.22.0/24"
     },
 
     {
-        "ParameterKey" : "PublicDmz1Subnet1Cidr",
+        "ParameterKey" : "PublicDmz1Subnet0Cidr",
         "ParameterValue" : "10.1.0.0/24"
     },
     {
-        "ParameterKey" : "PublicDmz1Subnet2Cidr",
+        "ParameterKey" : "PublicDmz1Subnet1Cidr",
         "ParameterValue" : "10.1.1.0/24"
     },
     {
-        "ParameterKey" : "PublicDmz1Subnet3Cidr",
+        "ParameterKey" : "PublicDmz1Subnet2Cidr",
         "ParameterValue" : "10.1.2.0/24"
     },
 
