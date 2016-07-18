@@ -22,7 +22,12 @@
             "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
         },
 
-        "PublicSubnet1" : {
+        "HostedZone" : {
+            "Description" : "Top Level Domain for DNS records to be created.",
+            "Type" : "String"
+         },
+
+        "PublicDmz1Subnet0" : {
             "Description" : "ID of the public subnet where SSH Bastion instance will go.",
             "Type" : "AWS::EC2::Subnet::Id",
             "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
@@ -87,7 +92,7 @@
                 ],
                 "Description" : "Elastic Network Interface to be used for SSH Bastion Device.",
                 "GroupSet" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
-                "SubnetId" : { "Ref" : "PublicSubnet1" }
+                "SubnetId" : { "Ref" : "PublicDmz1Subnet0" }
             }
         },
 
@@ -162,7 +167,7 @@
                 "Comment" : "Configure cfn-hup.",
                 "AWS::CloudFormation::Init" : {
                     "configSets" : {
-                        "first_install" : [ "install_cfn" ],
+                        "first_install" : [ "install_cfn", "configure_eni" ],
                         "subsequent_installs" : [ "do_nothing" ]
                     },
 
@@ -197,6 +202,73 @@
                         }
                     },
 
+                    "configure_eni" : {
+                        "files" : {
+                            "/tmp/configure_eni.sh" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "#!/usr/bin/env bash\n",
+                                    "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
+                                    "\n",
+                                    "attachmentId=`aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --attribute attachment --region ", { "Ref" : "AWS::Region" }, " | grep AttachmentId | awk -F\"[ \t\\\",]+\" {'print $4'}`\n",
+                                    "aws ec2 detach-network-interface --attachment-id $attachmentId --force --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "# Verify the ENI has been detached before proceeding\n",
+                                    "while [ $(aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, "  --attribute attachment --region us-east-1 | wc -l) -ne 3 ]; do\n",
+                                    "    sleep 5\n",
+                                    "done\n",
+                                    "eth0Mac=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "echo eth0Mac value: $eth0Mac\n",
+                                    "aws ec2 attach-network-interface --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --instance-id $instanceId --device-index 1 --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "\n",
+                                    "# Verify the ENI has been attached and is in meta-data before proceeding\n",
+                                    "allMacs=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "allMacsArray=($allMacs)\n",
+                                    "while [ `echo ${#allMacsArray[@]}` -ne 2 ]; do\n",
+                                    "    sleep 5\n",
+                                    "    allMacs=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "    allMacsArray=($allMacs)\n",
+                                    "done\n",
+                                    "\n",
+                                    "# Get eth1 mac, ip, and cidr block\n",
+                                    "eth1Mac=`for a in ${allMacsArray[@]}; do if [ ${a%/} != ${eth0Mac%/} ]; then echo ${a%/}; fi; done` \n",
+                                    "echo eth1Mac value: $eth1Mac\n",
+                                    "eth1LocalIpv4=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/$eth1Mac/local-ipv4s`\n",
+                                    "eth1SubnetCiderBlock=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/$eth1Mac/subnet-ipv4-cidr-block`\n",
+                                    "\n",
+                                    "# Network changes to enable eth1 (ENI) and give eth1 priority\n",
+                                    "# Lots of searching and testing to get this to work. Key reference:\n",
+                                    "# https://www.thomas-krenn.com/en/wiki/Two_Default_Gateways_on_One_System\n",
+                                    "echo \"auto eth1\" > /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"iface eth1 inet static\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"address ${eth1LocalIpv4}\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"netmask 255.255.255.0\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip route add default via ${eth1SubnetCiderBlock%.*}.1 dev eth1 table 101 metric 100\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip rule add from ${eth1LocalIpv4}/32 table 101 priority 100\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip route flush cache\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "ifup eth1\n",
+                                    "\n",
+                                    "# Verify eth1 comes up correctly, if not reset and retry\n",
+                                    "eth1status=`ethtool eth1 | grep -o 'yes' | wc -l`\n",
+                                    "while [ $eth1status -eq 0 ]; do\n",
+                                    "    ip addr flush dev eth1\n",
+                                    "    ifup eth1\n",
+                                    "    sleep 10\n",
+                                    "    eth1status=`ethtool eth1 | grep -o 'yes' | wc -l`\n",
+                                    "done\n",
+                                    "\n"
+                                ]]},
+                                "mode"    : "000755",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        },
+                        "commands" : {
+                            "1_configure_eni" : {
+                                "command" : "/tmp/configure_eni.sh"
+                            }
+                        }
+                    },
+
+
                     "do_nothing" : {
                         "commands" : {
                             "test" : {
@@ -229,26 +301,8 @@
                     "pip install --upgrade awscli\n",
 
                     "# Variables\n",
-                    "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
 
                     "# Configure OS\n",
-                    "# Associate the Elastic Network Interface to the instance\n",
-                    "attachmentId=`aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --attribute attachment --region ", { "Ref" : "AWS::Region" }, " | grep AttachmentId | awk -F\"[ \t\\\",]+\" {'print $4'}`\n",
-                    "aws ec2 detach-network-interface --attachment-id $attachmentId --force --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "# Need to wait a few seconds after detaching the ENI before attaching it to new instance\n",
-                    "sleep 30\n",
-                    "aws ec2 attach-network-interface --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --instance-id $instanceId --device-index 1 --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "# Need to wait a few seconds after attaching the ENI before it is ready for use\n",
-                    "sleep 10\n",
-                    "# Network changes to disable eth0 and only use eth1 (ENI)\n",
-                    "cp /etc/network/interfaces.d/eth0.cfg /etc/network/interfaces.d/eth1.cfg\n",
-                    "sed -i \"s/eth0/eth1/g\" /etc/network/interfaces.d/eth1.cfg\n",
-                    "ifdown eth0\n",
-                    "ifup eth1\n",
-                    "# Restart networking\n",
-                    "service networking restart\n",
-                    "# Extra step to help ensure DNS server is populated in /etc/resolve.conf (DHCP lease information in /var/lib/dhcp/)\n",
-                    "dhclient\n",
 
                      "/usr/local/bin/cfn-init -v ",
                      " --stack ", { "Ref" : "AWS::StackName" },
@@ -282,7 +336,7 @@
                     { "Key" : "role",        "Value" : "ssh-bastion",            "PropagateAtLaunch" : "true" },
                     { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet1" } ]
+                "VPCZoneIdentifier" : [ { "Ref" : "PublicDmz1Subnet0" } ]
             },
             "CreationPolicy" : {
                 "ResourceSignal" : {
@@ -301,17 +355,17 @@
                     "PauseTime" : "PT15M"
                 }
             }
-        }
-    },
-
-    "Outputs" : {
-        "BastionHostPublicIp" : {
-            "Description" : "Public IP Address of the Bastion host",
-            "Value" :  { "Ref" : "SshBastionIpAddress" }
         },
-        "BlankSpace" : {
-            "Value" : "Empty space",
-            "Description" : "Empty space so easier to copy other outputs."
+        "SshBastionDnsRecord" : {
+             "Type" : "AWS::Route53::RecordSet",
+             "Properties" : {
+                    "Comment" : { "Fn::Join" : [ "", [ { "Ref" : "Environment" }, " SSH Bastion Host" ]]},
+                    "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
+                    "Name" : { "Fn::Join" : [ "", [ { "Ref" : "Environment" }, "bastion.", { "Ref" : "HostedZone" } ,"." ]]},
+                    "ResourceRecords" : [ { "Ref" : "SshBastionIpAddress" } ],
+                    "TTL" : "300",
+                    "Type" : "A"
+             }
         }
     }
 }
