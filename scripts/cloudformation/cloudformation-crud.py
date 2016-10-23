@@ -13,7 +13,11 @@ from urllib.parse import urlparse
 cfn = boto3.client('cloudformation')
 
 
-def add_dict_to_parameters(parameter_dict, current_parameters={}, multiple_parameter_values={}):
+def add_dict_to_parameters(parameter_dict, current_parameters=None, multiple_parameter_values=None):
+    if current_parameters is None:
+        current_parameters = {}
+    if multiple_parameter_values is None:
+        multiple_parameter_values = {}
     logger.debug("add_dict_to_parameters - begin")
     logger.debug(str(parameter_dict))
     if 'ParameterKey' in parameter_dict:
@@ -105,10 +109,10 @@ parser.add_argument('-f', '--definition-file', action='store', dest='definition_
                     help='Definition file identifying stacks to create, read, update, and delete')
 loglevel_group = parser.add_mutually_exclusive_group()
 loglevel_group.add_argument('-d', '--debug', action="store_const", dest="loglevel", const=logging.DEBUG,
-                    help="Set log level to debug",
-                    default=logging.INFO)
+                            help="Set log level to debug",
+                            default=logging.INFO)
 loglevel_group.add_argument('-v', '--verbose', action="store_const", dest="loglevel", const=logging.INFO,
-                    help="Set log level to verbose")
+                            help="Set log level to verbose")
 args = parser.parse_args()
 
 # Initialize
@@ -204,11 +208,13 @@ if 'StacksToCreateOrUpdate' in product_definition:
             if 'Parameters' in template_body_json:
                 for parameter in template_body_json['Parameters']:
                     if parameter in parameter_values.keys():
-                        stack_parameters.append({'ParameterKey': parameter, 'ParameterValue': parameter_values[parameter]})
+                        stack_parameters.append(
+                            {'ParameterKey': parameter, 'ParameterValue': parameter_values[parameter]})
                     elif 'Default' in template_body_json['Parameters'][parameter]:
                         logger.debug("Using the default parameter value")
                         stack_parameters.append({'ParameterKey': parameter,
-                                                 'ParameterValue': template_body_json['Parameters'][parameter]['Default']})
+                                                 'ParameterValue': template_body_json['Parameters'][parameter][
+                                                     'Default']})
                     else:
                         stack_missing_parameters.append(parameter)
             logger.debug("Parameter values: " + json.dumps(stack_parameters))
@@ -263,10 +269,10 @@ if 'StacksToCreateOrUpdate' in product_definition:
             stack_resource_type = stack_events['StackEvents'][0]['ResourceType']
             stack_resource_status = stack_events['StackEvents'][0]['ResourceStatus']
             if stack_resource_type == 'AWS::CloudFormation::Stack' \
-                and stack_resource_status in ['CREATE_COMPLETE', 'UPDATE_COMPLETE']:
+                    and stack_resource_status in ['CREATE_COMPLETE', 'UPDATE_COMPLETE']:
                 logger.info("Stack %s has been created/updated." % stack_name)
                 if 'AddOutputsToParameters' in stack[stack_name]['Properties'] \
-                    and stack[stack_name]['Properties']['AddOutputsToParameters'] == False:
+                        and stack[stack_name]['Properties']['AddOutputsToParameters'] == False:
                     logger.debug("Do not add stack outputs to parameters")
                     break
                 else:
@@ -274,8 +280,8 @@ if 'StacksToCreateOrUpdate' in product_definition:
                     add_outputs_to_parameters(stack_name, parameter_values, multiple_parameter_values)
                 break
             elif stack_resource_type == 'AWS::CloudFormation::Stack' \
-                and stack_resource_status in ['CREATE_FAILED', 'ROLLBACK_FAILED', 'ROLLBACK_COMPLETE',
-                                              'UPDATE_ROLLBACK_FAILED', 'UPDATE_ROLLBACK_COMPLETE']:
+                    and stack_resource_status in ['CREATE_FAILED', 'ROLLBACK_FAILED', 'ROLLBACK_COMPLETE',
+                                                  'UPDATE_ROLLBACK_FAILED', 'UPDATE_ROLLBACK_COMPLETE']:
                 logger.critical("Stack failed to create or update.")
                 exit(1)
             else:
