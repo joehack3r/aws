@@ -1126,6 +1126,7 @@
             "Description" : "AZ of the second public DMZ subnet"
         },
         "PublicDmz1Subnet3" : {
+            "Condition" : "UseThreeAzs",
             "Value" : { "Ref" : "PublicDmz1Subnet3" },
             "Description" : "ID of the third public DMZ subnet"
         },
