@@ -287,7 +287,7 @@ Resources:
               command: "chown --recursive ec2-user:ec2-user ansible_vars"
               cwd: "/home/ec2-user"
             99cleanup:
-               command: rm /home/ec2-user/ssh-agent.sh /home/ec2-user/dev_ansible.sh get-variables.sh
+               command: rm /home/ec2-user/ssh-agent.sh /home/ec2-user/dev_ansible.sh /home/ec2-user/get-variables.sh
       AWS::CloudFormation::Authentication:
         S3AccessCreds:
           type: S3
