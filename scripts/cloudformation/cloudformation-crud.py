@@ -191,9 +191,16 @@ if 'StacksToCreateOrUpdate' in product_definition:
             stack_parameters = []
             stack_missing_parameters = []
             template_file_name = urlparse(stack[stack_name]['Properties']['Template']).path
+
+            # Read the file into a variable
             with open(os.path.expanduser(template_file_name), 'r') as f:
                 template_body_string = f.read()
-            template_body_json = json.loads(template_body_string)
+            # Convert to json taking extra step if file was .yml
+            if template_file_name.endswith('.yml'):
+                # template_body_json = json.loads(json.dumps(yaml.load(template_body_string), sort_keys=True, indent=2))
+                template_body_json = yaml.load(template_body_string)
+            else:
+                template_body_json = json.loads(template_body_string)
 
             if 'Capabilities' in stack[stack_name]['Properties']:
                 stack_capabilities = stack[stack_name]['Properties']['Capabilities']
