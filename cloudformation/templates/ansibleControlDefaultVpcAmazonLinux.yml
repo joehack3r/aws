@@ -251,10 +251,10 @@ Resources:
                   - "SUBNET_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/subnet-id`\n"
                   - "SECURITY_GROUP_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/security-group-ids`\n"
                   - "IAM_ROLE=`curl http://169.254.169.254/latest/meta-data/iam/security-credentials/`\n"
-                  - "echo REGION: $REGION > ansible_vars\n"
-                  - "echo SUBNET_ID: $SUBNET_ID >> ansible_vars\n"
-                  - "echo SECURITY_GROUP_ID: $SECURITY_GROUP_ID >> ansible_vars\n"
-                  - "echo IAM_ROLE: $IAM_ROLE >> ansible_vars\n"
+                  - "echo REGION: $REGION > vars_for_ansible\n"
+                  - "echo SUBNET_ID: $SUBNET_ID >> vars_for_ansible\n"
+                  - "echo SECURITY_GROUP_ID: $SECURITY_GROUP_ID >> vars_for_ansible\n"
+                  - "echo IAM_ROLE: $IAM_ROLE >> vars_for_ansible\n"
                   - "\n"
               mode: '000755'
               owner: ec2-user
@@ -284,7 +284,7 @@ Resources:
               command: "/home/ec2-user/get-variables.sh"
               cwd: "/home/ec2-user"
             5chown_ansible_variables_file:
-              command: "chown --recursive ec2-user:ec2-user ansible_vars"
+              command: "chown ec2-user:ec2-user vars_for_ansible"
               cwd: "/home/ec2-user"
             99cleanup:
                command: rm /home/ec2-user/ssh-agent.sh /home/ec2-user/dev_ansible.sh /home/ec2-user/get-variables.sh
