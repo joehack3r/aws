@@ -137,10 +137,19 @@ Resources:
         - Action:
           - cloudformation:*
           - ec2:*
-          - iam:PassRole
           Effect: Allow
           Resource:
           - "*"
+        - Action:
+          - iam:PassRole
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - 'arn:aws:iam::'
+              - Ref: AWS::AccountId
+              - ':role/'
+              - Ref: AnsibleRole
       Roles:
       - Ref: AnsibleRole
   AnsibleInstanceProfile:
