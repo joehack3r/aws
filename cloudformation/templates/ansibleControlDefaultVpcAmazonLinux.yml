@@ -135,8 +135,9 @@ Resources:
               - Ref: BucketName
               - "/*"
         - Action:
-          - ec2:*
           - cloudformation:*
+          - ec2:*
+          - iam:PassRole
           Effect: Allow
           Resource:
           - "*"
@@ -177,6 +178,7 @@ Resources:
           packages:
             yum:
               git: []
+              jq: []
               unzip: []
             python:
               boto: []
@@ -251,10 +253,14 @@ Resources:
                   - "SUBNET_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/subnet-id`\n"
                   - "SECURITY_GROUP_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/security-group-ids`\n"
                   - "IAM_ROLE=`curl http://169.254.169.254/latest/meta-data/iam/security-credentials/`\n"
+                  - "IAM_INSTANCE_PROFILE=`curl http://169.254.169.254/latest/meta-data/iam/info | jq .InstanceProfileArn | tr -d '\"' | awk -F/ {'print $2'}`\n"
+                  - "KEYPAIR=`curl http://169.254.169.254/latest/meta-data/public-keys/ | awk -F= {'print $2'}`\n"                  
                   - "echo REGION: $REGION > vars_for_ansible\n"
                   - "echo SUBNET_ID: $SUBNET_ID >> vars_for_ansible\n"
                   - "echo SECURITY_GROUP_ID: $SECURITY_GROUP_ID >> vars_for_ansible\n"
                   - "echo IAM_ROLE: $IAM_ROLE >> vars_for_ansible\n"
+                  - "echo IAM_INSTANCE_PROFILE: $IAM_INSTANCE_PROFILE >> vars_for_ansible\n"
+                  - "echo KEYPAIR: $KEYPAIR >> vars_for_ansible\n"
                   - "\n"
               mode: '000755'
               owner: ec2-user
