@@ -245,7 +245,7 @@ if 'StacksToCreateOrUpdate' in product_definition:
                         logger.critical("Validation error: " + e.response['Error']['Message'])
                         exit(1)
                     else:
-                        logger.critical("Unexpected ClientError: " + e)
+                        logger.critical("Unexpected ClientError: " + e.response['Error']['Message'])
                         exit(1)
 
             elif stack_name in active_stack_names:
@@ -267,7 +267,7 @@ if 'StacksToCreateOrUpdate' in product_definition:
                         logger.critical("Validation error: " + e.response['Error']['Message'])
                         exit(1)
                     else:
-                        logger.critical("Unexpected ClientError: " + e)
+                        logger.critical("Unexpected ClientError: " + e.response['Error']['Message'])
                         exit(1)
                 active_stack_names.append(stack_name)
 
