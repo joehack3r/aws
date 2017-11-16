@@ -1,0 +1,89 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Check for stale (unused/unmanaged) security groups and notify. The Python code needs updating.
+
+Parameters:
+
+  NotificationArn:
+    Description: |
+      Existing SNS to notify if/when the lambda identifies an issue exists.
+    Type: String
+
+Resources:
+
+  LambdaStaleSecurityGroupCheckRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        -
+          PolicyName: DescribeSecurityGroupsSendSNS
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Sid: DescribeImages
+                Effect: Allow
+                Action:
+                  - alb:DescribeLoadBalancers
+                  - autoscaling:DescribeLaunchConfigurations
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeInstances
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - rds:DescribeDbInstances
+                  - redshift:DescribeClusters
+                Resource: "*"
+              -
+                Sid: AllowSnsActions
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref NotificationArn
+
+  LambdaCheckForStaleSecurityGroups:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Checks for stale security groups
+      Handler: index.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt LambdaStaleSecurityGroupCheckRole.Arn
+      Runtime: python3.6
+      Timeout: 60
+      Environment:
+        Variables:
+          sns_topic_arn: !Ref NotificationArn
+      Code:
+        S3Bucket: "public-joehack3r-com"
+        S3Key: "lambdas/stale-security-groups/code.zip"
+
+  CloudWatchEventLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      FunctionName: !Ref LambdaCheckForStaleSecurityGroups
+
+  CloudwatchEventRuleForScheduling:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Cron - 12 UTC every day
+      ScheduleExpression: "cron(0 12 * * ? *)"
+      # Description: Rate - every 1 day
+      # ScheduleExpression: "rate(1 day)"
+      State: ENABLED
+      Targets:
+        -
+          Arn: !GetAtt LambdaCheckForStaleSecurityGroups.Arn
+          Id: CloudWatchEventRuleId
