@@ -5,7 +5,7 @@
 
     "Parameters" : {
 
-        "HomeNetwork0CIDR" : {
+        "HomeNetwork1CIDR" : {
             "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
             "Type": "String",
             "MinLength": "9",
@@ -14,7 +14,7 @@
             "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
         },
 
-        "HomeNetwork1CIDR" : {
+        "HomeNetwork2CIDR" : {
             "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
             "Type": "String",
             "MinLength": "9",
@@ -49,12 +49,12 @@
                     "IpProtocol" : "tcp",
                     "FromPort" : "22",
                     "ToPort" : "22",
-                    "CidrIp" : { "Ref" : "HomeNetwork0CIDR" }
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR" }
                     },{
                     "IpProtocol" : "tcp",
                     "FromPort" : "22",
                     "ToPort" : "22",
-                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR" }
+                    "CidrIp" : { "Ref" : "HomeNetwork2CIDR" }
                     }],
                 "SecurityGroupEgress" : [{
                     "IpProtocol" : "tcp",

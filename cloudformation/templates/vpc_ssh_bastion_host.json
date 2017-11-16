@@ -1,14 +1,14 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
 
-    "Description" : "SSH Bastion host.",
+    "Description" : "SSH Bastion host. Limited to single Availability Zone due to ENI usage.",
 
     "Parameters" : {
 
         "Environment" : {
-            "Description" : "Environment name - no spaces allowed.",
+            "Description" : "Environment name - no spaces or underscored allowed.",
             "Type" : "String",
-            "AllowedPattern" : "[-_a-zA-Z0-9]*"
+            "AllowedPattern" : "[-a-zA-Z0-9]*"
         },
 
         "KeyName" : {
@@ -22,43 +22,52 @@
             "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
         },
 
-        "PublicSubnet0" : {
-            "Description" : "ID of the public subnet where SSH-Bastion instance will go",
-            "Type" : "AWS::EC2::Subnet::Id"
+        "HostedZone" : {
+            "Description" : "Top Level Domain for DNS records to be created.",
+            "Type" : "String"
+         },
+
+        "PublicDmz1Subnet0" : {
+            "Description" : "ID of the public subnet where SSH Bastion instance will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "SshBastionInstanceType" : {
-            "Description" : "Bastion Host EC2 instance type",
+            "Description" : "SSH Bastion Host EC2 instance type.",
             "Type" : "String",
             "ConstraintDescription" : "Must be a valid EC2 instance type.",
             "Default" : "t2.nano"
         },
 
         "SshBastionInstanceCountMin" : {
-            "Description" : "Min size of instances in auto scaling group.",
+            "Description" : "Minimum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "1"
         },
 
         "SshBastionInstanceCountMax" : {
-            "Description" : "Max size of instances in auto scaling group.",
+            "Description" : "Maximum number of instances in auto scaling group.",
             "Type" : "String",
             "Default" : "1"
         },
 
         "SshBastionSecurityGroupId" : {
-            "Description" : "Bastion security group",
-            "Type" : "AWS::EC2::SecurityGroup::Id"
+            "Description" : "Security group id where the bastion host server resides.",
+            "Type" : "AWS::EC2::SecurityGroup::Id",
+            "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "UbuntuAmi" : {
             "Description" : "Ubuntu AMI. Should replace with hardened AMI.",
-            "Type" : "AWS::EC2::Image::Id"
+            "Type" : "AWS::EC2::Image::Id",
+            "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
         },
 
         "VpcId" : {
-            "Description" : "VPD Id.",
-            "Type" : "AWS::EC2::VPC::Id"
+            "Description" : "Physical ID of the VPC.",
+            "Type" : "AWS::EC2::VPC::Id",
+            "AllowedPattern": "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
         }
     },
 
@@ -74,109 +83,211 @@
         "SshBastionDeviceEni" : {
             "Type" : "AWS::EC2::NetworkInterface",
             "Properties" : {
-                "Tags": [
+                "Tags" : [
                     { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/vpc/", { "Ref" : "Environment" }, "/ssh-bastion-eni" ]]} },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
                     { "Key" : "product",     "Value" : "vpc" },
                     { "Key" : "role",        "Value" : "ssh-bastion-eni" },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" } }
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" } }
                 ],
-                "Description": "Elastic Network Interface to be used for SSH Bastion Device.",
-                "GroupSet": [ { "Ref" : "SshBastionSecurityGroupId" } ],
-                "SubnetId": { "Ref" : "PublicSubnet0" }
+                "Description" : "Elastic Network Interface to be used for SSH Bastion Device.",
+                "GroupSet" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
+                "SubnetId" : { "Ref" : "PublicDmz1Subnet0" }
             }
         },
 
         "SshBastionElasticIpAssociation" : {
-            "Type": "AWS::EC2::EIPAssociation",
-            "Properties": {
-                "AllocationId": { "Fn::GetAtt" : [ "SshBastionIpAddress", "AllocationId" ]},
+            "Type" : "AWS::EC2::EIPAssociation",
+            "Properties" : {
+                "AllocationId" : { "Fn::GetAtt" : [ "SshBastionIpAddress", "AllocationId" ]},
                 "NetworkInterfaceId" : { "Ref" : "SshBastionDeviceEni" }
             }
         },
 
-        "SshBastionRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [
+        "SshBastionRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Statement" : [
                         {
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": [
+                            "Effect" : "Allow",
+                            "Principal" : {
+                                "Service" : [
                                     "ec2.amazonaws.com"
                                 ]
                             },
-                            "Action": [
+                            "Action" : [
                                 "sts:AssumeRole"
                             ]
                         }
                     ]
                 },
-                "Path": "/"
+                "Path" : "/"
             }
         },
 
-        "SshBastionRolePolicies": {
-            "Type": "AWS::IAM::Policy",
-            "Properties": {
-                "PolicyName": "SshBastion",
-                "PolicyDocument": {
-                    "Statement": [
+        "SshBastionRolePolicies" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "SshBastion",
+                "PolicyDocument" : {
+                    "Statement" : [
                         {
-                            "Action":[
+                            "Action" :[
                                 "ec2:AttachNetworkInterface",
                                 "ec2:DescribeInstances",
                                 "ec2:DescribeInstanceStatus",
                                 "ec2:DescribeNetworkInterfaceAttribute",
                                 "ec2:DetachNetworkInterface"
                             ],
-                            "Effect":"Allow",
-                            "Resource":"*"
+                            "Effect" :"Allow",
+                            "Resource" :"*"
                         }
                     ]
                 },
-            "Roles": [
-                { "Ref": "SshBastionRole" }
+            "Roles" : [
+                { "Ref" : "SshBastionRole" }
             ]
             }
         },
 
-        "SshBastionInstanceProfile": {
-            "Type": "AWS::IAM::InstanceProfile",
-            "Properties": {
-                "Path": "/",
-                "Roles": [
-                    { "Ref": "SshBastionRole" }
+        "SshBastionInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Path" : "/",
+                "Roles" : [
+                    { "Ref" : "SshBastionRole" }
                 ]
             }
         },
 
-        "SshBastionLaunchConfiguration": {
-            "Type": "AWS::AutoScaling::LaunchConfiguration",
+        "SshBastionLaunchConfiguration" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
             "Metadata" : {
+                "Comment" : "Configure cfn-hup.",
                 "AWS::CloudFormation::Init" : {
-                    "config" : {
-                        "packages" : {
-                            "apt" : {
-                                "git" : [],
-                                "unzip" : [],
-                                "zip" : []
+                    "configSets" : {
+                        "first_install" : [ "install_cfn", "configure_eni" ],
+                        "subsequent_installs" : [ "do_nothing" ]
+                    },
+
+                    "install_cfn" : {
+                        "files" : {
+                            "/etc/cfn/cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n",
+                                    "interval=1\n",
+                                    "verbose=true\n"
+                                ]]},
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/usr/local/bin/cfn-init -v ",
+                                    " --stack ", { "Ref" : "AWS::StackName" },
+                                    " --resource SshBastionLaunchConfiguration ",
+                                    " --configsets subsequent_installs ",
+                                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "runas=root\n"
+                                ]]}
+                            }
+                        }
+                    },
+
+                    "configure_eni" : {
+                        "files" : {
+                            "/tmp/configure_eni.sh" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "#!/usr/bin/env bash\n",
+                                    "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
+                                    "\n",
+                                    "attachmentId=`aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --attribute attachment --region ", { "Ref" : "AWS::Region" }, " | grep AttachmentId | awk -F\"[ \t\\\",]+\" {'print $4'}`\n",
+                                    "aws ec2 detach-network-interface --attachment-id $attachmentId --force --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "# Verify the ENI has been detached before proceeding\n",
+                                    "while [ $(aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, "  --attribute attachment --region us-east-1 | wc -l) -ne 3 ]; do\n",
+                                    "    sleep 5\n",
+                                    "done\n",
+                                    "eth0Mac=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "echo eth0Mac value: $eth0Mac\n",
+                                    "aws ec2 attach-network-interface --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --instance-id $instanceId --device-index 1 --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "\n",
+                                    "# Verify the ENI has been attached and is in meta-data before proceeding\n",
+                                    "allMacs=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "allMacsArray=($allMacs)\n",
+                                    "while [ `echo ${#allMacsArray[@]}` -ne 2 ]; do\n",
+                                    "    sleep 5\n",
+                                    "    allMacs=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n",
+                                    "    allMacsArray=($allMacs)\n",
+                                    "done\n",
+                                    "\n",
+                                    "# Get eth1 mac, ip, and cidr block\n",
+                                    "eth1Mac=`for a in ${allMacsArray[@]}; do if [ ${a%/} != ${eth0Mac%/} ]; then echo ${a%/}; fi; done` \n",
+                                    "echo eth1Mac value: $eth1Mac\n",
+                                    "eth1LocalIpv4=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/$eth1Mac/local-ipv4s`\n",
+                                    "eth1SubnetCiderBlock=`curl -l http://169.254.169.254/latest/meta-data/network/interfaces/macs/$eth1Mac/subnet-ipv4-cidr-block`\n",
+                                    "\n",
+                                    "# Network changes to enable eth1 (ENI) and give eth1 priority\n",
+                                    "# Lots of searching and testing to get this to work. Key reference:\n",
+                                    "# https://www.thomas-krenn.com/en/wiki/Two_Default_Gateways_on_One_System\n",
+                                    "echo \"auto eth1\" > /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"iface eth1 inet static\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"address ${eth1LocalIpv4}\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"netmask 255.255.255.0\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip route add default via ${eth1SubnetCiderBlock%.*}.1 dev eth1 table 101 metric 100\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip rule add from ${eth1LocalIpv4}/32 table 101 priority 100\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "echo \"up ip route flush cache\" >> /etc/network/interfaces.d/eth1.cfg\n",
+                                    "ifup eth1\n",
+                                    "\n",
+                                    "# Verify eth1 comes up correctly, if not reset and retry\n",
+                                    "eth1status=`ethtool eth1 | grep -o 'yes' | wc -l`\n",
+                                    "while [ $eth1status -eq 0 ]; do\n",
+                                    "    ip addr flush dev eth1\n",
+                                    "    ifup eth1\n",
+                                    "    sleep 10\n",
+                                    "    eth1status=`ethtool eth1 | grep -o 'yes' | wc -l`\n",
+                                    "done\n",
+                                    "\n"
+                                ]]},
+                                "mode"    : "000755",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        },
+                        "commands" : {
+                            "1_configure_eni" : {
+                                "command" : "/tmp/configure_eni.sh"
+                            }
+                        }
+                    },
+
+
+                    "do_nothing" : {
+                        "commands" : {
+                            "test" : {
+                                "command" : "date >> /tmp/do_nothing.log",
+                                "ignoreErrors" : "true"
                             }
                         }
                     }
                 }
             },
-
-            "Properties": {
+            "Properties" : {
                 "AssociatePublicIpAddress" : "True",
-                "ImageId": { "Ref" : "UbuntuAmi" },
-                "InstanceType": { "Ref": "SshBastionInstanceType" },
-                "KeyName": { "Ref": "KeyName" },
-                "IamInstanceProfile": { "Ref": "SshBastionInstanceProfile" },
-                "InstanceMonitoring": "false",
-                "SecurityGroups": [{ "Ref": "SshBastionSecurityGroupId" }],
-                "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+                "IamInstanceProfile" : { "Ref" : "SshBastionInstanceProfile" },
+                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "InstanceMonitoring" : "false",
+                "InstanceType" : { "Ref" : "SshBastionInstanceType" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "SshBastionSecurityGroupId" } ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
                     "#!/bin/bash -v\n",
 
                     "# Capture UserData script output in multiple locations for easier debugging\n",
@@ -186,72 +297,52 @@
                     "# Install cloudformation helper scripts\n",
                     "apt-get update\n",
                     "apt-get --yes install python python3 python-pip python3-pip\n",
-                    "pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-                    "pip3 install --upgrade awscli\n",
+                    "pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "pip install --upgrade awscli\n",
 
                     "# Variables\n",
-                    "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
-
-                    "# Functions\n",
-                    "function error_exit\n",
-                    "{\n",
-                    "  cfn-signal --exit-code 1 --stack ", { "Ref" : "AWS::StackName" }, " --resource SshBastionScalingGroup ", "--region ", { "Ref" : "AWS::Region" }, "\n",
-                    "  exit 1\n",
-                    "}\n",
-
-                    "# Download and create files\n",
-                    "# Start with CloudFormation::Init files\n",
-                    "cfn-init --region ", { "Ref" : "AWS::Region" },
-                    "    -s ", { "Ref" : "AWS::StackId" }, " -r SshBastionLaunchConfiguration || error_exit 'Failed to run cfn-init'\n",
 
                     "# Configure OS\n",
-                    "# Associate the Elastic Network Interface to the instance\n",
-                    "attachmentId=`aws ec2 describe-network-interface-attribute --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --attribute attachment --region ", { "Ref" : "AWS::Region" }, " | grep AttachmentId | awk -F\"[ \t\\\",]+\" {'print $4'}`\n",
-                    "aws ec2 detach-network-interface --attachment-id $attachmentId --force --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "# Need to wait a few seconds after detaching the ENI before attaching it to new instance\n",
-                    "sleep 30\n",
-                    "aws ec2 attach-network-interface --network-interface-id ", { "Ref" : "SshBastionDeviceEni" }, " --instance-id $instanceId --device-index 1 --region ", { "Ref" : "AWS::Region" }, "\n",
-                    "# Need to wait a few seconds after attaching the ENI before it is ready for use\n",
-                    "sleep 10\n",
-                    "# Network changes to disable eth0 and only use eth1 (ENI)\n",
-                    "cp /etc/network/interfaces.d/eth0.cfg /etc/network/interfaces.d/eth1.cfg\n",
-                    "sed -i \"s/eth0/eth1/g\" /etc/network/interfaces.d/eth1.cfg\n",
-                    "ifdown eth0\n",
-                    "ifup eth1\n",
-                    "# Restart networking\n",
-                    "service networking restart\n",
-                    "# Extra step to help ensure DNS server is populated in /etc/resolve.conf (DHCP lease information in /var/lib/dhcp/)\n",
-                    "dhclient\n",
 
+                     "/usr/local/bin/cfn-init -v ",
+                     " --stack ", { "Ref" : "AWS::StackName" },
+                     " --resource SshBastionLaunchConfiguration ",
+                     " --configsets first_install",
+                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
-                    "# Configure Applications\n",
-                    "cfn-init --region ", { "Ref" : "AWS::Region" },
-                    "    -s ", { "Ref" : "AWS::StackId" }, " -r SshBastionLaunchConfiguration || error_exit 'Failed to run cfn-init'\n",
+                     "/usr/local/bin/cfn-signal -e $? ",
+                     " --stack ", { "Ref" : "AWS::StackName" },
+                     " --resource SshBastionAutoScalingGroup ",
+                     " --region ", { "Ref" : "AWS::Region" }, "\n",
 
-
-                    "# cfn-init signal success\n",
-                    "cfn-signal --exit-code 0 --stack ", { "Ref" : "AWS::StackName" }, " --resource SshBastionScalingGroup ", "--region ", { "Ref" : "AWS::Region" }, "\n",
+                     "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
+                     "/usr/local/bin/cfn-hup --config /etc/cfn --verbose\n",
 
                     "\n"
                 ]]}}
             }
         },
 
-        "SshBastionScalingGroup": {
-            "Type": "AWS::AutoScaling::AutoScalingGroup",
-            "Version": "2009-05-15",
-            "Properties": {
-                "LaunchConfigurationName": { "Ref": "SshBastionLaunchConfiguration" },
-                "MinSize": { "Ref" : "SshBastionInstanceCountMin" },
-                "MaxSize": { "Ref" : "SshBastionInstanceCountMax" },
-                "Tags": [
+        "SshBastionAutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "LaunchConfigurationName" : { "Ref" : "SshBastionLaunchConfiguration" },
+                "MinSize" : { "Ref" : "SshBastionInstanceCountMin" },
+                "MaxSize" : { "Ref" : "SshBastionInstanceCountMax" },
+                "Tags" : [
                     { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/vpc/", { "Ref" : "Environment" }, "/ssh-bastion" ]]}, "PropagateAtLaunch" : "true" },
-                    { "Key" : "environment", "Value" : { "Ref": "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
                     { "Key" : "product",     "Value" : "vpc",                    "PropagateAtLaunch" : "true" },
                     { "Key" : "role",        "Value" : "ssh-bastion",            "PropagateAtLaunch" : "true" },
-                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
                 ],
-                "VPCZoneIdentifier" : [ { "Ref" : "PublicSubnet0" } ]
+                "VPCZoneIdentifier" : [ { "Ref" : "PublicDmz1Subnet0" } ]
+            },
+            "CreationPolicy" : {
+                "ResourceSignal" : {
+                    "Timeout" : "PT15M",
+                    "Count"   : "1"
+                }
             },
             "UpdatePolicy" : {
                 "AutoScalingScheduledAction" : {
@@ -261,20 +352,20 @@
                     "MinInstancesInService" : "0",
                     "MaxBatchSize" : "1",
                     "WaitOnResourceSignals" : "true",
-                    "PauseTime" : "PT10M"
+                    "PauseTime" : "PT15M"
                 }
             }
-        }
-    },
-
-    "Outputs" : {
-        "BastionHostPublicIp" : {
-            "Description" : "Public IP Address of the Bastion host",
-            "Value" :  { "Ref" : "SshBastionIpAddress" }
         },
-        "BlankSpace" : {
-            "Value" : "Empty space",
-            "Description" : "Empty space so easier to copy other outputs."
+        "SshBastionDnsRecord" : {
+             "Type" : "AWS::Route53::RecordSet",
+             "Properties" : {
+                    "Comment" : { "Fn::Join" : [ "", [ { "Ref" : "Environment" }, " SSH Bastion Host" ]]},
+                    "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
+                    "Name" : { "Fn::Join" : [ "", [ { "Ref" : "Environment" }, "bastion.", { "Ref" : "HostedZone" } ,"." ]]},
+                    "ResourceRecords" : [ { "Ref" : "SshBastionIpAddress" } ],
+                    "TTL" : "300",
+                    "Type" : "A"
+             }
         }
     }
 }

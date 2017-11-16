@@ -29,7 +29,9 @@
             "VPC-Dev" : {
                 "Properties" : {
                     "Template" : "file:///path/to/aws/cloudformation/templates/file.json",
-                    "AddOutputsToParameters" : true
+                    "AddOutputsToParameters" : true,
+                    "Capabilities" : ["CAPABILITY_IAM"],
+                    "DisableRollback" : true
                 }
             }
         }

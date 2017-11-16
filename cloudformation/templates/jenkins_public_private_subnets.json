@@ -1,0 +1,635 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "Jenkins Machine. Limited to single Availability Zone due to EBS volume usage.",
+
+    "Parameters" : {
+
+        "CertificateArn" : {
+            "Description" : "ARN of the SSL Certificate.",
+            "Type" : "String"
+        },
+
+        "Environment" : {
+            "Description" : "Environment name - no spaces or underscored allowed.",
+            "Type" : "String",
+            "AllowedPattern" : "[-a-zA-Z0-9]*"
+        },
+
+        "GitHubCidr" : {
+            "Description" : "The IP address range, in CIDR format, GitHub uses. Needed for GitHub hooks.",
+            "Type" : "String",
+            "MinLength" : "9",
+            "MaxLength" : "18",
+            "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription" : "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+            "Default" : "192.30.252.0/22"
+        },
+
+        "HomeNetwork1CIDR" : {
+            "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+            "Default" : "255.255.255.255/32"
+        },
+
+        "HomeNetwork2CIDR" : {
+            "Description" : "The IP address range, in CIDR format, that can be used to access the public subnets.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+
+        "HostedZone" : {
+            "Description" : "Top Level Domain for DNS records to be created.",
+            "Type" : "String"
+        },
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances.",
+            "Type" : "AWS::EC2::KeyPair::KeyName"
+        },
+
+        "JenkinsDnsAlias" : {
+            "Description" : "DNS alias for the Elastic Load Balancer.",
+            "Type" : "String"
+        },
+
+        "JenkinsHomeEbsVolume" : {
+            "Description" : "EBS Volume Id that contains the JENKINS_HOME contents.",
+            "Type" : "AWS::EC2::Volume::Id",
+            "AllowedPattern": "^vol-(?=[0-9a-f]*$)(?:.{8}|.{17})$"
+        },
+
+        "JenkinsInstanceType" : {
+            "Description" : "Jenkins EC2 instance type.",
+            "Type" : "String",
+            "ConstraintDescription" : "Must be a valid EC2 instance type.",
+            "Default" : "t2.small"
+        },
+
+        "JenkinsInstanceCountMax" : {
+            "Description" : "Maximum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "1"
+        },
+
+        "JenkinsInstanceCountMin" : {
+            "Description" : "Minimum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "1"
+        },
+
+        "OwnerTag" : {
+            "Description" : "Owner Tag. Preferably email username or email address.",
+            "Type" : "String",
+            "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
+        },
+
+        "PredefinedElbSecurityPolicy" : {
+            "Description" : "Name of the predefined security policy for negotiating SSL listener on ELB. This policy determines SSL Protocols, SSL Options, and SSL Ciphers.",
+            "Type" : "String",
+            "AllowedPattern" : "ELBSecurityPolicy-[0-9]{4,4}-[0-9]{2,2}"
+        },
+
+        "PrivateSubnet1" : {
+            "Description" : "ID of the private subnet where the Jenkins instance will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "PublicSubnet1" : {
+            "Description" : "ID of the public subnet where the ELB will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "SshBastionSecurityGroupId" : {
+            "Description" : "Security group id where the bastion host server resides.",
+            "Type" : "AWS::EC2::SecurityGroup::Id",
+            "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "UbuntuAmi" : {
+            "Description" : "Ubuntu AMI.",
+            "Type" : "AWS::EC2::Image::Id",
+            "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "SshBastionSecurityGroupId" : {
+            "Description" : "Security group created where the bastion host server resides",
+            "Type" : "AWS::EC2::SecurityGroup::Id",
+            "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "VpcId" : {
+            "Description" : "Physical ID of the VPC where resources should be created",
+            "Type" : "AWS::EC2::VPC::Id",
+            "AllowedPattern": "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
+        }
+    },
+
+    "Resources" : {
+
+        "JenkinsElbSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Public facing Jenkins ELB Security Group.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : { "Ref" : "HomeNetwork1CIDR"}
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : { "Ref" : "HomeNetwork2CIDR"}
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : { "Ref" : "HomeNetwork2CIDR"}
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : { "Ref" : "GitHubCidr"}
+                    }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "JenkinsSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Jenkins server security group",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "SourceSecurityGroupId" : { "Ref" : "SshBastionSecurityGroupId"}
+                }],
+                "SecurityGroupEgress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "JenkinsElbEgressToJenkinsPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "JenkinsElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "DestinationSecurityGroupId" : { "Ref" : "JenkinsSecurityGroup" }
+            }
+        },
+
+        "JenkinsIngressFromJenkinsElbPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "JenkinsSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "SourceSecurityGroupId" : { "Ref" : "JenkinsElbSecurityGroup" }
+            }
+        },
+
+        "JenkinsElbEgressToJenkinsPort8080" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "JenkinsElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "8080",
+                "ToPort" : "8080",
+                "DestinationSecurityGroupId" : { "Ref" : "JenkinsSecurityGroup" }
+            }
+        },
+
+        "JenkinsIngressFromJenkinsElbPort8080" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "JenkinsSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "8080",
+                "ToPort" : "8080",
+                "SourceSecurityGroupId" : { "Ref" : "JenkinsElbSecurityGroup" }
+            }
+        },
+
+        "JenkinsElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "DependsOn" : [ "JenkinsElbSecurityGroup" ],
+            "Properties" : {
+                "ConnectionDrainingPolicy" : { "Enabled" : "True" },
+                "CrossZone" : "true",
+                "LoadBalancerName" : { "Fn::Join" : [ "", [ "Jenkins-", { "Ref" : "Environment" }, "-Elb" ]]},
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "80",
+                    "Protocol"         : "HTTP",
+                    "InstancePort"     : "80",
+                    "InstanceProtocol" : "HTTP"
+                    },{
+                    "LoadBalancerPort" : "443",
+                    "Protocol"         : "HTTPS",
+                    "InstancePort"     : "8080",
+                    "InstanceProtocol" : "HTTP",
+                    "SSLCertificateId" : {  "Ref" : "CertificateArn" },
+                    "PolicyNames" : [ "ELBSecurityPolicy" ]
+                }],
+                "Policies" : [ {
+                    "PolicyName" : "ELBSecurityPolicy",
+                    "PolicyType" : "SSLNegotiationPolicyType",
+                    "Attributes" : [{
+                        "Name" : "Reference-Security-Policy",
+                        "Value" : { "Ref" : "PredefinedElbSecurityPolicy" }
+                    }]
+                }],
+                "HealthCheck" : {
+                    "Target" : "HTTP:8080/login",
+                    "HealthyThreshold" : "3",
+                    "UnhealthyThreshold" : "5",
+                    "Interval" : "30",
+                    "Timeout" : "5"
+                },
+                "SecurityGroups" : [{ "Ref" : "JenkinsElbSecurityGroup" }],
+                "Subnets" : [ { "Ref" : "PublicSubnet1" } ],
+                "Tags" : [
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
+                    { "Key" : "product",     "Value" : "Jenkins"              },
+                    { "Key" : "role",        "Value" : "elb"                    },
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "JenkinsRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Statement" : [
+                        {
+                            "Effect" : "Allow",
+                            "Principal" : {
+                                "Service" : [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action" : [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path" : "/"
+            }
+        },
+
+        "JenkinsRolePolicies" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "Jenkins",
+                "PolicyDocument" : {
+                    "Statement" : [
+                        {
+                            "Action" :[
+                                "autoscaling:*",
+                                "codedeploy:*",
+                                "cloudformation:*",
+                                "ec2:*",
+                                "elasticloadbalancing:*",
+                                "iam:*",
+                                "route53:*"
+                            ],
+                            "Effect" :"Allow",
+                            "Resource" :"*"
+                        }
+                    ]
+                },
+            "Roles" : [
+                { "Ref" : "JenkinsRole" }
+            ]
+            }
+        },
+
+        "JenkinsInstanceProfile" : {
+            "Type" : "AWS::IAM::InstanceProfile",
+            "Properties" : {
+                "Path" : "/",
+                "Roles" : [
+                    { "Ref" : "JenkinsRole" }
+                ]
+            }
+        },
+
+        "JenkinsLaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Metadata" : {
+                "Comment" : "Install Jenkins and Nginx.",
+                "AWS::CloudFormation::Init" : {
+                    "configSets" : {
+                        "first_install" : [ "install_cfn", "mount_jenkins_ebs", "add_jenkins_repo", "install_packages",
+                                            "download_static_files", "verify_instance_health"],
+                        "subsequent_installs" : [ "download_static_files", "verify_instance_health"]
+                    },
+
+                    "mount_jenkins_ebs" : {
+                        "files" : {
+                            "/usr/local/bin/deatch-attach-ebs.sh" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "#!/usr/bin/env bash\n",
+                                    "instanceId=`curl -l http://169.254.169.254/latest/meta-data/instance-id/ 2>/dev/null`\n",
+                                    "aws ec2 detach-volume --volume-id ", { "Ref" : "JenkinsHomeEbsVolume" }, " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "sleep 30\n",
+                                    "aws ec2 attach-volume --volume-id ", { "Ref" : "JenkinsHomeEbsVolume" }, " --instance-id $instanceId --device /dev/xvdf --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "sleep 10\n",
+                                    "\n"
+                                ]]},
+                                "mode"    : "000500",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        },
+                        "commands" : {
+                            "1mount_ebs_volume" : {
+                                "command" : "/usr/local/bin/deatch-attach-ebs.sh"
+                            },
+                            "2format_ebs_volume" : {
+                                "command" : "mkfs -t ext4 /dev/xvdf",
+                                "test" : "file -s /dev/xvdf | grep data$"
+                            },
+                            "3create_jenkins_home_dir" : {
+                                "command" : "mkdir /var/lib/jenkins",
+                                "test" : "! ls /var/lib/jenkins"
+                            },
+                            "4mount_jenkins_home_dir" : {
+                                "command" : "mount /dev/xvdf /var/lib/jenkins"
+                            },
+                            "5add_jenkins_home_dir_fstab" : {
+                                "command" : "echo '/dev/xvdf /var/lib/jenkins ext4 defaults 0 0' >> /etc/fstab",
+                                "test" : "grep --files-without-match jenkins /etc/fstab | grep fstab"
+                            }
+                        }
+                    },
+
+                    "add_jenkins_repo" : {
+                        "files" : {
+                            "/etc/apt/sources.list.d/jenkins.list" : {
+                                "content" : "deb http://pkg.jenkins-ci.org/debian binary/",
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+                            "/usr/sbin/policy-rc.d" : {
+                                "content" : { "Fn::Join" : ["", [
+                                "#!/bin/sh\n",
+                                "# https://major.io/2014/06/26/install-debian-packages-without-starting-daemons/ \n",
+                                "echo \"All runlevel operations denied by policy\" >&2\n",
+                                "exit 101\n"
+                            ]]},
+                                "mode"    : "000755",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        },
+                        "commands" : {
+                            "1add_jenkins_key" : {
+                                "command" : "wget -q -O - https://jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add - "
+                            },
+                            "2update_apt_repo" : {
+                                "command" : "apt-get update"
+                            }
+                        }
+                    },
+
+                    "install_cfn" : {
+                        "files" : {
+                            "/etc/cfn/cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n",
+                                    "interval=1\n",
+                                    "verbose=true\n"
+                                ]]},
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.JenkinsLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/usr/local/bin/cfn-init -v ",
+                                    " --stack ", { "Ref" : "AWS::StackName" },
+                                    " --resource JenkinsLaunchConfig ",
+                                    " --configsets subsequent_installs ",
+                                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "runas=root\n"
+                                ]]}
+                            }
+                        }
+                    },
+
+                    "install_packages" : {
+                        "packages" : {
+                            "apt" : {
+                                "git" : [],
+                                "jenkins" : [],
+                                "nginx" : [],
+                                "zip" : []
+                            },
+                            "python" : {
+                                "boto3" : []
+                            }
+                        },
+                        "commands" : {
+                            "1chown_jenkins_home_dir" : {
+                                "command" : "chown --recursive jenkins:jenkins /var/lib/jenkins"
+                            },
+                            "2remove_policy-rc.d" : {
+                                "command" : "rm /usr/sbin/policy-rc.d",
+                                "test" : "test -e /usr/sbin/policy-rc.d"
+                            }
+                        },
+                        "services" : {
+                            "sysvinit" : {
+                                "jenkins" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "packages" : { "apt" : ["jenkins"] }
+                                },
+                                "nginx" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "files" : ["/etc/nginx/nginx.conf"]
+                                }
+                            }
+                        }
+                    },
+
+                    "download_static_files" : {
+                        "files" : {
+                            "/usr/share/nginx/html/index.html" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "<html>",
+                                      "<head> <meta http-equiv=\"refresh\" content=\"0;URL='https://",
+                                       { "Ref" : "JenkinsDnsAlias" }, ".", { "Ref" : "HostedZone" }, "/'\" /> </head>",
+                                      "<body> <p>Redirecting to HTTPS.</p> </body>",
+                                    "</html>"
+                                ]]},
+                                "mode"    : "000644",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        }
+                    },
+
+                    "verify_instance_health" : {
+                        "commands" : {
+                            "ELBHealthCheck" : {
+                                "command" : { "Fn::Join" : ["", [ 
+                                    "until [ \"$state\" = \"\\\"InService\\\"\" ]; do ",
+                                    "  state=$(aws --region ", { "Ref" : "AWS::Region" }, " elb describe-instance-health ",
+                                    "              --load-balancer-name ", { "Ref" : "JenkinsElasticLoadBalancer" }, 
+                                    "              --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
+                                    "              --query InstanceStates[0].State); ",
+                                    "  sleep 10; ",
+                                    "done"
+                                ]]}
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties" : {
+                "AssociatePublicIpAddress" : "False",
+                "BlockDeviceMappings" : [
+                    {
+                     "DeviceName" : "/dev/sda1",
+                     "Ebs" : { "VolumeSize" : "10", "VolumeType" : "gp2" }
+                    }
+                ],
+                "IamInstanceProfile" : { "Ref" : "JenkinsInstanceProfile" },
+                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "InstanceMonitoring" : "false",
+                "InstanceType" : { "Ref" : "JenkinsInstanceType" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "JenkinsSecurityGroup" } ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+                    "#!/bin/bash -v\n",
+
+                    "# Capture UserData script output in multiple locations for easier debugging\n",
+                    "# http://alestic.com/2010/12/ec2-user-data-output\n",
+                    "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+
+                    "# Install cloudformation helper scripts\n",
+                    "apt-get update\n",
+                    "apt-get --yes install python python3 python-pip python3-pip\n",
+                    "pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "pip install --upgrade awscli\n",
+                    "# Until python3 becomes the default...install boto3 for python3\n",
+                    "pip3 install boto3\n",
+
+                    "/usr/local/bin/cfn-init -v ",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource JenkinsLaunchConfig ",
+                    " --configsets first_install",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                    "/usr/local/bin/cfn-signal -e $? ",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource JenkinsAutoScalingGroup ",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                     "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
+                     "/usr/local/bin/cfn-hup --config /etc/cfn --verbose\n",
+
+                    "\n"
+                ]]}}
+            }
+        },
+
+        "JenkinsAutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Version" : "2009-05-15",
+            "Properties" : {
+                "LaunchConfigurationName" : { "Ref" : "JenkinsLaunchConfig" },
+                "LoadBalancerNames" : [ { "Ref" : "JenkinsElasticLoadBalancer" } ],
+                "MinSize" : { "Ref" : "JenkinsInstanceCountMin"},
+                "MaxSize" : { "Ref" : "JenkinsInstanceCountMax"},
+                "Tags" : [
+                    { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/jenkins/", { "Ref" : "Environment" } ]]}, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "product",     "Value" : "jenkins",              "PropagateAtLaunch" : "true" },
+                    { "Key" : "role",        "Value" : "jenkins",                 "PropagateAtLaunch" : "true" },
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                ],
+                "VPCZoneIdentifier" : [ { "Ref" : "PrivateSubnet1" } ]
+            },
+            "CreationPolicy" : {
+                "ResourceSignal" : {
+                    "Timeout" : "PT15M",
+                    "Count"   : "1"
+                }
+            },
+            "UpdatePolicy" : {
+                "AutoScalingScheduledAction" : {
+                    "IgnoreUnmodifiedGroupSizeProperties" : "true"
+                },
+                "AutoScalingRollingUpdate" : {
+                    "MinInstancesInService" : "0",
+                    "MaxBatchSize" : "1",
+                    "WaitOnResourceSignals" : "true",
+                    "PauseTime" : "PT15M"
+                }
+            }
+        },
+
+        "ElbDnsRecord" : {
+             "Type" : "AWS::Route53::RecordSet",
+             "Properties" : {
+                    "Comment" : "DNS entry for ELB.",
+                    "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
+                    "Name" : {
+                        "Fn::Join" : [ "", [ { "Ref" : "JenkinsDnsAlias" }, ".", { "Ref" : "HostedZone" } ,"." ]]},
+                    "AliasTarget" : { 
+                        "DNSName" : { "Fn::Join" : [ "", [ { "Fn::GetAtt" : [ "JenkinsElasticLoadBalancer" , "DNSName" ] }, "." ]]},
+                        "HostedZoneId" : { "Fn::GetAtt" : [ "JenkinsElasticLoadBalancer", "CanonicalHostedZoneNameID" ] }
+                    },
+                "Type" : "A"
+            }
+        }
+    },
+
+    "Outputs" : {
+        "JenkinsURL" : {
+            "Description" : "URL to access Jenkins.",
+            "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "JenkinsDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
+        }
+    }
+}

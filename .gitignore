@@ -1,4 +1,7 @@
+#PyCharm
+.idea/*
 #OS files
 [Tt]humbs.db
 *.DS_Store
 *.log
+*.swp

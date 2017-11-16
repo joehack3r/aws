@@ -1,0 +1,501 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "ELB and Node.js. Node.js is in an AutoScalingGroup.",
+
+    "Parameters" : {
+
+        "CertificateArn" : {
+            "Description" : "ARN of the SSL Certificate.",
+            "Type" : "String"
+        },
+
+        "Environment" : {
+            "Description" : "Environment name - no spaces or underscored allowed.",
+            "Type" : "String",
+            "AllowedPattern" : "[-a-zA-Z0-9]*"
+        },
+
+        "HostedZone" : {
+            "Description" : "Top Level Domain for DNS records to be created.",
+            "Type" : "String"
+        },
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances.",
+            "Type" : "AWS::EC2::KeyPair::KeyName"
+        },
+
+        "OwnerTag" : {
+            "Description" : "Owner Tag. Preferably email username or email address.",
+            "Type" : "String",
+            "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
+        },
+
+        "PredefinedElbSecurityPolicy" : {
+            "Description" : "Name of the predefined security policy for negotiating SSL listener on ELB. This policy determines SSL Protocols, SSL Options, and SSL Ciphers.",
+            "Type" : "String",
+            "AllowedPattern" : "ELBSecurityPolicy-[0-9]{4,4}-[0-9]{2,2}"
+        },
+
+        "PrivateSubnet1" : {
+            "Description" : "ID of the private subnet where the Node.js instances will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "PrivateSubnet2" : {
+            "Description" : "ID of the private subnet where the Node.js instances will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "PublicSubnet1" : {
+            "Description" : "ID of the public subnet where the ELB will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "PublicSubnet2" : {
+            "Description" : "ID of the public subnet where the ELB will go.",
+            "Type" : "AWS::EC2::Subnet::Id",
+            "AllowedPattern": "^subnet-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "SshBastionSecurityGroupId" : {
+            "Description" : "Security group id where the bastion host server resides.",
+            "Type" : "AWS::EC2::SecurityGroup::Id",
+            "AllowedPattern": "^sg-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "UbuntuAmi" : {
+            "Description" : "AMI ID for Ubuntu image to be used for the Node.js server.",
+            "Type" : "AWS::EC2::Image::Id",
+            "AllowedPattern": "^ami-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "VpcId" : {
+            "Description" : "Physical ID of the VPC.",
+            "Type" : "AWS::EC2::VPC::Id",
+            "AllowedPattern": "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
+        },
+
+        "NodejsDnsAlias" : {
+            "Description" : "DNS alias for the Elastic Load Balancer.",
+            "Type" : "String"
+        },
+
+        "NodejsInstanceCountMin" : {
+            "Description" : "Minimum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "1"
+        },
+
+        "NodejsInstanceCountMax" : {
+            "Description" : "Maximum number of instances in auto scaling group.",
+            "Type" : "String",
+            "Default" : "2"
+        },
+
+        "NodejsInstanceType" : {
+            "Description" : "Node.js EC2 instance type.",
+            "Type" : "String",
+            "ConstraintDescription" : "Must be a valid EC2 instance type.",
+            "Default" : "t2.nano"
+        }
+    },
+
+    "Resources" : {
+        "ElbSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Public facing ELB security group.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "NodejsSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Node.js server security group.",
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "SourceSecurityGroupId" : { "Ref" : "SshBastionSecurityGroupId"}
+                }],
+                "SecurityGroupEgress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "80",
+                    "ToPort" : "80",
+                    "CidrIp" : "0.0.0.0/0"
+                    },{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "443",
+                    "ToPort" : "443",
+                    "CidrIp" : "0.0.0.0/0"
+                }],
+                "VpcId" : { "Ref" : "VpcId" }
+            }
+        },
+
+        "ElbEgressToNodejsPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "ElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "DestinationSecurityGroupId" : { "Ref" : "NodejsSecurityGroup" }
+            }
+        },
+
+        "NodejsIngressFromElbPort80" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "NodejsSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "80",
+                "ToPort" : "80",
+                "SourceSecurityGroupId" : { "Ref" : "ElbSecurityGroup" }
+            }
+        },
+
+        "ElbEgressToNodejsPort443" : {
+            "Type" : "AWS::EC2::SecurityGroupEgress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "ElbSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "DestinationSecurityGroupId" : { "Ref" : "NodejsSecurityGroup" }
+            }
+        },
+
+        "NodejsIngressFromElbPort443" : {
+            "Type" : "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId" : { "Ref" : "NodejsSecurityGroup" },
+                "IpProtocol" : "tcp",
+                "FromPort" : "443",
+                "ToPort" : "443",
+                "SourceSecurityGroupId" : { "Ref" : "ElbSecurityGroup" }
+            }
+        },
+
+        "NodejsElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "DependsOn" : [ "ElbSecurityGroup" ],
+            "Properties" : {
+                "ConnectionDrainingPolicy" : { "Enabled" : "True" },
+                "CrossZone" : "true",
+                "LoadBalancerName" : { "Fn::Join" : [ "", [ "Nodejs-", { "Ref" : "Environment" }, "-Elb" ]]},
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "80",
+                    "Protocol"         : "HTTP",
+                    "InstancePort"     : "80",
+                    "InstanceProtocol" : "HTTP"
+                    },{
+                    "LoadBalancerPort" : "443",
+                    "Protocol"         : "HTTPS",
+                    "InstancePort"     : "80",
+                    "InstanceProtocol" : "HTTP",
+                    "SSLCertificateId" : {  "Ref" : "CertificateArn" },
+                    "PolicyNames" : [ "ELBSecurityPolicy" ]
+                }],
+                "Policies" : [ {
+                    "PolicyName" : "ELBSecurityPolicy",
+                    "PolicyType" : "SSLNegotiationPolicyType",
+                    "Attributes" : [{
+                        "Name" : "Reference-Security-Policy",
+                        "Value" : { "Ref" : "PredefinedElbSecurityPolicy" }
+                    }]
+                }],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "3",
+                    "UnhealthyThreshold" : "5",
+                    "Interval" : "30",
+                    "Timeout" : "5"
+                },
+                "SecurityGroups" : [{ "Ref" : "ElbSecurityGroup" }],
+                "Subnets" : [ { "Ref" : "PublicSubnet1" }, { "Ref" : "PublicSubnet2" } ],
+                "Tags" : [
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" } },
+                    { "Key" : "product",     "Value" : "myProduct"              },
+                    { "Key" : "role",        "Value" : "elb"                    },
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "NodejsIamRole" : {
+            "Type" : "AWS::IAM::Role",
+            "Properties" : {
+                "AssumeRolePolicyDocument" : {
+                    "Statement" : [ {
+                        "Effect" : "Allow",
+                        "Principal" : {
+                            "Service" : [ "ec2.amazonaws.com" ]
+                        },
+                        "Action" : [ "sts:AssumeRole" ]
+                    } ]
+                },
+                "Path" : "/",
+                "Policies" : [{
+                    "PolicyName" : { "Fn::Join" : ["", [ { "Ref" : "AWS::StackName" }, "-describe-instance-health-policy" ]] },
+                    "PolicyDocument" : {
+                        "Statement" : [{
+                            "Effect" : "Allow",
+                            "Action" : [ "elasticloadbalancing:DescribeInstanceHealth" ],
+                            "Resource" : "*"
+                        },
+                        {
+                            "Effect" : "Allow",
+                            "Action" : [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Resource" : [
+                                "arn:aws:s3:::codedeploydemobucket/*",
+                                "arn:aws:s3:::aws-codedeploy-us-east-1/*",
+                                "arn:aws:s3:::aws-codedeploy-us-west-2/*",
+                                "arn:aws:s3:::aws-codedeploy-us-west-1/*",
+                                "arn:aws:s3:::aws-codedeploy-eu-west-1/*",
+                                "arn:aws:s3:::aws-codedeploy-eu-central-1/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-southeast-1/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-southeast-2/*",
+                                "arn:aws:s3:::aws-codedeploy-ap-northeast-1/*"
+                            ]
+                        }]
+                    }
+                }]
+            }
+        },
+
+        "NodejsInstanceProfile" : { 
+                "Type" : "AWS::IAM::InstanceProfile",
+                "Properties" : {
+                        "Path" : "/",
+                        "Roles" : [ { "Ref" : "NodejsIamRole" } ]
+                }
+        },
+
+        "NodejsLaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn" : [ "NodejsElasticLoadBalancer" ],
+            "Metadata" : {
+                "Comment" : "Install Nginx and serve a single static file.",
+                "AWS::CloudFormation::Init" : {
+                    "configSets" : {
+                        "first_install" : [ "install_cfn", "install_packages", "install_nodejs",
+                                            "download_static_files", "verify_instance_health"],
+                        "subsequent_installs" : [ "download_static_files", "verify_instance_health"]
+                    },
+
+                    "install_cfn" : {
+                        "files" : {
+                            "/etc/cfn/cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n",
+                                    "interval=1\n",
+                                    "verbose=true\n"
+                                ]]},
+                                "mode"    : "000400",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            },
+
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.NodejsLaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/usr/local/bin/cfn-init -v ",
+                                    " --stack ", { "Ref" : "AWS::StackName" },
+                                    " --resource NodejsLaunchConfig ",
+                                    " --configsets subsequent_installs ",
+                                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+                                    "runas=root\n"
+                                ]]}
+                            }
+                        }
+                    },
+
+                    "install_packages" : {
+                        "packages" : {
+                            "apt" : {
+                                "nginx" : []
+                            }
+                        },
+                        "services" : {
+                            "sysvinit" : {
+                                "nginx" : {
+                                    "enabled" : "true",
+                                    "ensureRunning" : "true",
+                                    "files" : ["/etc/nginx/nginx.conf"]
+                                }
+                            }
+                        }
+                    },
+
+                    "install_nodejs" : {
+                        "commands" : {
+                            "1add_nodejs_ppa" : {
+                                "command" : "curl -sL https://deb.nodesource.com/setup_6.x | bash -"
+                            },
+                            "2install_nodejs" : {
+                                "command" : "apt-get install -y nodejs"
+                            }
+                        }
+                    },
+
+                    "download_static_files" : {
+                        "files" : {
+                            "/usr/share/nginx/html/index.html" : {
+                                "content" : { "Fn::Join" : ["\n", [
+                                    "<h1>Hello World!</h1>"
+                                ]]},
+                                "mode"    : "000644",
+                                "owner"   : "root",
+                                "group"   : "root"
+                            }
+                        }
+                    },
+
+                    "verify_instance_health" : {
+                        "commands" : {
+                            "ELBHealthCheck" : {
+                                "command" : { "Fn::Join" : ["", [ 
+                                    "until [ \"$state\" = \"\\\"InService\\\"\" ]; do ",
+                                    "  state=$(aws --region ", { "Ref" : "AWS::Region" }, " elb describe-instance-health ",
+                                    "              --load-balancer-name ", { "Ref" : "NodejsElasticLoadBalancer" }, 
+                                    "              --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
+                                    "              --query InstanceStates[0].State); ",
+                                    "  sleep 10; ",
+                                    "done"
+                                ]]}
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties" : {
+                "AssociatePublicIpAddress" : "False",
+                "IamInstanceProfile" : { "Ref" : "NodejsInstanceProfile" },
+                "ImageId" : { "Ref" : "UbuntuAmi" },
+                "InstanceMonitoring" : "false",
+                "InstanceType" : { "Ref" : "NodejsInstanceType" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroups" : [ { "Ref" : "NodejsSecurityGroup" } ],
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+                    "#!/bin/bash -v\n",
+
+                    "# Capture UserData script output in multiple locations for easier debugging\n",
+                    "# http://alestic.com/2010/12/ec2-user-data-output\n",
+                    "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n",
+
+                    "# Install cloudformation helper scripts\n",
+                    "apt-get update\n",
+                    "apt-get --yes install python python3 python-pip python3-pip\n",
+                    "pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "pip install --upgrade awscli\n",
+
+                    "# CodeDeploy Agent\n",
+                    "# No Ubuntu 16.04 support as of 5/14/16. Taking steps to prepare for Ubuntu 16.04 support.\n",
+                    "# Different versions of Ubuntu have different ruby package names\n",
+                    "for i in ruby2.0 ruby; do apt-get --yes install $i; done\n",
+                    "aws s3 cp s3://aws-codedeploy-us-east-1/latest/install /tmp --region ", { "Ref" : "AWS::Region" }, "\n",
+                    "chmod +x /tmp/install\n",
+                    "/tmp/install auto\n",
+
+                    "/usr/local/bin/cfn-init -v ",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource NodejsLaunchConfig ",
+                    " --configsets first_install",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                    "/usr/local/bin/cfn-signal -e $? ",
+                    " --stack ", { "Ref" : "AWS::StackName" },
+                    " --resource NodejsAutoScalingGroup ",
+                    " --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                     "# Start up the cfn-hup daemon to listen for changes to the metadata\n",
+                     "/usr/local/bin/cfn-hup --config /etc/cfn --verbose\n",
+
+                    "\n"
+                ]]}}
+            }
+        },
+
+        "NodejsAutoScalingGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "LaunchConfigurationName" : { "Ref" : "NodejsLaunchConfig" },
+                "MinSize" : { "Ref" : "NodejsInstanceCountMin" },
+                "MaxSize" : { "Ref" : "NodejsInstanceCountMax" },
+                "Tags" : [
+                    { "Key" : "Name", "Value" : { "Fn::Join" : ["", ["/myProduct/", { "Ref" : "Environment" }, "/nodejs" ]]}, "PropagateAtLaunch" : "true" },
+                    { "Key" : "environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "product",     "Value" : "myProduct",                    "PropagateAtLaunch" : "true" },
+                    { "Key" : "role",        "Value" : "nodejs",            "PropagateAtLaunch" : "true" },
+                    { "Key" : "owner",       "Value" : { "Ref" : "OwnerTag" },    "PropagateAtLaunch" : "true" }
+                ],
+                "LoadBalancerNames" : [ { "Ref" : "NodejsElasticLoadBalancer" } ],
+                "VPCZoneIdentifier" : [{ "Ref" : "PrivateSubnet1" }, { "Ref" : "PrivateSubnet2" }]
+            },
+            "CreationPolicy" : {
+                "ResourceSignal" : {
+                    "Timeout" : "PT15M",
+                    "Count"   : "1"
+                }
+            },
+            "UpdatePolicy" : {
+                "AutoScalingScheduledAction" : {
+                    "IgnoreUnmodifiedGroupSizeProperties" : "true"
+                },
+                "AutoScalingRollingUpdate" : {
+                    "MinInstancesInService" : "1",
+                    "MaxBatchSize" : "1",
+                    "WaitOnResourceSignals" : "true",
+                    "PauseTime" : "PT15M"
+                }
+            }
+        },
+
+        "ElbDnsRecord" : {
+             "Type" : "AWS::Route53::RecordSet",
+             "Properties" : {
+                    "Comment" : "DNS entry for ELB.",
+                    "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ]]},
+                    "Name" : {
+                        "Fn::Join" : [ "", [ { "Ref" : "NodejsDnsAlias" }, ".", { "Ref" : "HostedZone" } ,"." ]]},
+                    "AliasTarget" : { 
+                        "DNSName" : { "Fn::Join" : [ "", [ { "Fn::GetAtt" : [ "NodejsElasticLoadBalancer" , "DNSName" ] }, "." ]]},
+                        "HostedZoneId" : { "Fn::GetAtt" : [ "NodejsElasticLoadBalancer", "CanonicalHostedZoneNameID" ] }
+                    },
+                "Type" : "A"
+            }
+        }
+    },
+
+    "Outputs" : {
+        "NodejsURL" : {
+            "Description" : "URL to access Nodejs.",
+            "Value" :  { "Fn::Join" : [ "", [ "https://", { "Ref" : "NodejsDnsAlias" }, ".", { "Ref" : "HostedZone" } ]]}
+        }
+    }
+}

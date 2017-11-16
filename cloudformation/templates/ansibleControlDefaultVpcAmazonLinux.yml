@@ -1,0 +1,396 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Ansible Control Machine for Default VPC. Uses Amazon Linux.
+Parameters:
+  HomeNetwork0CIDR:
+    Description: " The IP address range, in CIDR format, that can be used to access the public subnet."
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  AnsibleAMI:
+    Description: AMI for the Ansible server - typically latest Amazon Linux AMI identified from https://aws.amazon.com/amazon-linux-ami/
+    Type: AWS::EC2::Image::Id
+    AllowedPattern: "^ami-(?=[0-9a-f]*$)(?:.{8})$"
+  AnsibleInstanceType:
+    Description: EC2 instance type
+    Type: String
+    ConstraintDescription: Must be a valid EC2 instance type.
+    Default: t2.nano
+  AnsibleInstanceCountMin:
+    Description: Min size of instances in auto scaling group
+    Type: String
+    Default: '0'
+  AnsibleInstanceCountMax:
+    Description: Max size of instances in auto scaling group
+    Type: String
+    Default: '1'
+  BucketName:
+    Description: Name of bucket containing files Ansbile needs and uses
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the Ansible control instance
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Description: Physical ID of the VPC where resources should be created
+    Type: AWS::EC2::VPC::Id
+    AllowedPattern: "^vpc-(?=[0-9a-f]*$)(?:.{8})$"
+Resources:
+  AnsibleSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access only from Home Network
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp:
+          Ref: HomeNetwork0CIDR
+      - IpProtocol: tcp
+        FromPort: '3389'
+        ToPort: '3389'
+        CidrIp:
+          Ref: HomeNetwork0CIDR
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: 0.0.0.0/0
+      VpcId:
+        Ref: VpcId
+  AnsibleIngressFromSelfPort22:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: AnsibleSecurityGroup
+      IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      SourceSecurityGroupId:
+        Ref: AnsibleSecurityGroup
+  AnsibleEgressToSelfPort22:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Ref: AnsibleSecurityGroup
+      IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      DestinationSecurityGroupId:
+        Ref: AnsibleSecurityGroup
+  AnsibleIngressFromSelfPort5986:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: AnsibleSecurityGroup
+      IpProtocol: tcp
+      FromPort: '5986'
+      ToPort: '5986'
+      SourceSecurityGroupId:
+        Ref: AnsibleSecurityGroup
+  AnsibleEgressToSelfPort5986:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Ref: AnsibleSecurityGroup
+      IpProtocol: tcp
+      FromPort: '5986'
+      ToPort: '5986'
+      DestinationSecurityGroupId:
+        Ref: AnsibleSecurityGroup
+  AnsibleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  AnsibleRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AnsibleControl
+      PolicyDocument:
+        Statement:
+        - Action:
+          - "*"
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - 'arn:aws:s3:::'
+              - Ref: BucketName
+          - Fn::Join:
+            - ''
+            - - 'arn:aws:s3:::'
+              - Ref: BucketName
+              - "/*"
+        - Action:
+          - cloudformation:*
+          - ec2:*
+          Effect: Allow
+          Resource:
+          - "*"
+        - Action:
+          - iam:PassRole
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - 'arn:aws:iam::'
+              - Ref: AWS::AccountId
+              - ':role/'
+              - Ref: AnsibleRole
+      Roles:
+      - Ref: AnsibleRole
+  AnsibleInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: AnsibleRole
+  CfnUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource: "*"
+  CfnKeys:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        Ref: CfnUser
+  AnsibleLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          first_install:
+          - install_packages
+          - install_configure_ansible
+        install_packages:
+          packages:
+            yum:
+              git: []
+              jq: []
+              unzip: []
+            python:
+              boto: []
+              boto3: []
+        install_configure_ansible:
+          packages:
+            python:
+              ansible: []
+              boto: []
+              boto3: []
+              paramiko: []
+              PyYAML: []
+              jinja2: []
+          files:
+            /home/ec2-user/.ssh/ansible.pem:
+              source:
+                Fn::Join:
+                - ''
+                - - https://s3.amazonaws.com/
+                  - Ref: BucketName
+                  - "/ssh_keys/ansible.pem"
+              mode: '000600'
+              owner: ec2-user
+              group: ec2-user
+            /home/ec2-user/hosts_for_ansible:
+              content:
+                Fn::Join:
+                - ''
+                - - "[local]\n"
+                  - "localhost ansible_connection=local\n"
+              mode: '000600'
+              owner: ec2-user
+              group: ec2-user
+            "/home/ec2-user/ssh-agent.sh":
+              content:
+                Fn::Join:
+                - ''
+                - - "#!/usr/bin/env bash\n"
+                  - "echo '#Start ssh-agent at login (for Ansible)' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'SSHAGENT=/usr/bin/ssh-agent' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'SSHAGENTARGS=\"-s\"' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'if [ -z \"$SSH_AUTH_SOCK\" -a -x \"$SSHAGENT\" ]; then ' >> /home/ec2-user/.bashrc\n"
+                  - "echo '  eval `$SSHAGENT $SSHAGENTARGS` ' >> /home/ec2-user/.bashrc\n"
+                  - "echo '  trap \"kill $SSH_AGENT_PID\" 0 ' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'fi ' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'ssh-add /home/ec2-user/.ssh/ansible.pem' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'export ANSIBLE_HOSTS=/home/ec2-user/hosts_for_ansible' >> /home/ec2-user/.bashrc\n"
+              mode: '000755'
+              owner: ec2-user
+              group: ec2-user
+            "/home/ec2-user/dev_ansible.sh":
+              content:
+                Fn::Join:
+                - ''
+                - - "#!/usr/bin/env bash\n"
+                  - "echo 'echo \"To run the development branch of Ansible:\"' >> /home/ec2-user/.bashrc\n"
+                  - "echo 'echo \"source /home/ec2-user/ansible/hacking/env-setup\"' >> /home/ec2-user/.bashrc\n"
+              mode: '000755'
+              owner: ec2-user
+              group: ec2-user
+            "/home/ec2-user/get-variables.sh":
+              content:
+                Fn::Join:
+                - ''
+                - - "#!/usr/bin/env bash\n"
+                  - "# Get ansible variables that are used in the playbooks.\n"
+                  - "# Region, VPC subnet, security group, IAM role, etc.\n"
+                  - REGION=
+                  - Ref: AWS::Region
+                  - "\n"
+                  - "MAC=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/`\n"
+                  - "SUBNET_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/subnet-id`\n"
+                  - "SECURITY_GROUP_ID=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$MAC/security-group-ids`\n"
+                  - "IAM_ROLE=`curl http://169.254.169.254/latest/meta-data/iam/security-credentials/`\n"
+                  - "IAM_INSTANCE_PROFILE=`curl http://169.254.169.254/latest/meta-data/iam/info | jq .InstanceProfileArn | tr -d '\"' | awk -F/ {'print $2'}`\n"
+                  - "KEYPAIR=`curl http://169.254.169.254/latest/meta-data/public-keys/ | awk -F= {'print $2'}`\n"                  
+                  - "echo REGION: $REGION > vars_for_ansible\n"
+                  - "echo SUBNET_ID: $SUBNET_ID >> vars_for_ansible\n"
+                  - "echo SECURITY_GROUP_ID: $SECURITY_GROUP_ID >> vars_for_ansible\n"
+                  - "echo IAM_ROLE: $IAM_ROLE >> vars_for_ansible\n"
+                  - "echo IAM_INSTANCE_PROFILE: $IAM_INSTANCE_PROFILE >> vars_for_ansible\n"
+                  - "echo KEYPAIR: $KEYPAIR >> vars_for_ansible\n"
+                  - "\n"
+              mode: '000755'
+              owner: ec2-user
+              group: ec2-user
+            "/home/ec2-user/.ansible.cfg":
+              content:
+                Fn::Join:
+                - ''
+                - - "[defaults]\n"
+                  - "host_key_checking=False\n"
+              mode: '000600'
+              owner: ec2-user
+              group: ec2-user
+          commands:
+            0ssh-agent:
+              command: "/home/ec2-user/ssh-agent.sh"
+            1install_dev_ansible:
+              command: "/usr/bin/git clone https://github.com/ansible/ansible.git"
+              cwd: "/home/ec2-user"
+            2chown_dev_ansible:
+              command: "chown --recursive ec2-user:ec2-user ansible"
+              cwd: "/home/ec2-user"
+            3install_dev_ansible_bashrc:
+              command: "/home/ec2-user/dev_ansible.sh"
+              cwd: "/home/ec2-user"
+            4identify_ansible_variables:
+              command: "/home/ec2-user/get-variables.sh"
+              cwd: "/home/ec2-user"
+            5chown_ansible_variables_file:
+              command: "chown ec2-user:ec2-user vars_for_ansible"
+              cwd: "/home/ec2-user"
+            99cleanup:
+               command: rm /home/ec2-user/ssh-agent.sh /home/ec2-user/dev_ansible.sh /home/ec2-user/get-variables.sh
+      AWS::CloudFormation::Authentication:
+        S3AccessCreds:
+          type: S3
+          accessKeyId:
+            Ref: CfnKeys
+          secretKey:
+            Fn::GetAtt:
+            - CfnKeys
+            - SecretAccessKey
+          buckets:
+          - Ref: BucketName
+    Properties:
+      IamInstanceProfile:
+        Ref: AnsibleInstanceProfile
+      ImageId:
+        Ref: AnsibleAMI
+      InstanceType:
+        Ref: AnsibleInstanceType
+      KeyName:
+        Ref: KeyName
+      InstanceMonitoring: 'false'
+      SecurityGroups:
+      - Ref: AnsibleSecurityGroup
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#!/bin/bash -v\n"
+            - "# Capture UserData script output in multiple locations for easier debugging\n"
+            - "# http://alestic.com/2010/12/ec2-user-data-output\n"
+            - "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n"
+            - "/opt/aws/bin/cfn-init -v "
+            - " --stack "
+            - Ref: AWS::StackName
+            - " --resource AnsibleLaunchConfiguration "
+            - " --configsets first_install"
+            - " --region "
+            - Ref: AWS::Region
+            - "\n"
+            - "/opt/aws/bin/cfn-signal -e $? "
+            - " --stack "
+            - Ref: AWS::StackName
+            - " --resource AnsibleScalingGroup "
+            - " --region "
+            - Ref: AWS::Region
+            - "\n"
+            - "# Start up the cfn-hup daemon to listen for changes to the metadata\n"
+            - "/opt/aws/bin/cfn-hup --config /etc/cfn --verbose\n"
+            - "\n"
+  AnsibleScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Version: '2009-05-15'
+    Properties:
+      AvailabilityZones:
+        Fn::GetAZs: ''
+      LaunchConfigurationName:
+        Ref: AnsibleLaunchConfiguration
+      MinSize:
+        Ref: AnsibleInstanceCountMin
+      MaxSize:
+        Ref: AnsibleInstanceCountMax
+      DesiredCapacity:
+        Ref: AnsibleInstanceCountMax
+      Tags:
+      - Key: Name
+        Value: ansible-control
+        PropagateAtLaunch: 'true'
+      - Key: application
+        Value: ansible
+        PropagateAtLaunch: 'true'
+      - Key: role
+        Value: control
+        PropagateAtLaunch: 'true'
+      - Key: environment
+        Value: production
+        PropagateAtLaunch: 'true'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+        Count: '1'
+Outputs:
+  AnsibleInstanceProfile:
+    Value:
+      Ref: AnsibleInstanceProfile
+    Description: IAM Instance Profile for Ansible Control instance. Can be used for
+      instances launched by Ansible.
+  AnsibleSecurityGroupId:
+    Value:
+      Ref: AnsibleSecurityGroup
+    Description: Security Group ID for Ansible Control instance. Can be used for instances
+      launched by Ansible.

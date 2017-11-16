@@ -1,7 +1,7 @@
 {
     "AWSTemplateFormatVersion" : "2010-09-09",
 
-    "Description" : "VPC with two public subnets.",
+    "Description" : "VPC with two public subnets, two private subnets, and two NAT Gateways.",
 
     "Parameters" : {
         "Environment" : {
@@ -32,6 +32,23 @@
             "Description" : "Owner Tag. Preferably email username or email address.",
             "Type" : "String",
             "AllowedPattern" : "[\\.a-zA-Z0-9@]*"
+        },
+
+        "PrivateSubnet1Cidr" : {
+            "Description" : "The CIDR block for the first private subnet.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "PrivateSubnet2Cidr" : {
+            "Description" : "The CIDR block for the second private subnet.",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{2})",
+            "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x."
         },
 
         "PublicSubnet1Cidr" : {
@@ -408,6 +425,214 @@
             }
         },
 
+        "NatGateway1ElasticIpAddress" : {
+            "Type" : "AWS::EC2::EIP",
+            "Properties" : {
+                "Domain" : "vpc"
+            }
+        },
+
+        "NatGateway1" : {
+            "Type" : "AWS::EC2::NatGateway",
+            "Properties" : {
+                "AllocationId" : { "Fn::GetAtt" : ["NatGateway1ElasticIpAddress", "AllocationId"]},
+                "SubnetId" : { "Ref" : "PublicSubnet1"}
+            }
+        },
+
+        "Private1RouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "Private1RouteTable" },
+                    { "Key" : "Network", "Value" : "Private" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PrivateRouteTable"       },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : {"Ref" : "VPC"}
+            }
+        },
+
+        "Private1Route" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "NatGatewayId" : { "Ref" : "NatGateway1" },
+                "RouteTableId" : { "Ref" : "Private1RouteTable" }
+            }
+        },
+
+        "PrivateAppDataNetworkacl" : {
+            "Type" : "AWS::EC2::NetworkAcl",
+            "Properties" : {
+                "VpcId" : {"Ref" : "VPC"},
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "PrivateAppDataNetworkacl" },
+                    { "Key" : "Network", "Value" : "Private" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PrivateNetworkAcl"       },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ]
+            }
+        },
+
+        "InboundPrivate1AllTcpNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "100"
+            }
+        },
+
+        "InboundPrivate1ICMPNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "false",
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
+                "Protocol" : "1",
+                "Icmp": {
+                    "Type": "3",
+                    "Code": "4"
+                },
+                "RuleAction" : "allow",
+                "RuleNumber" : "110"
+            }
+        },
+
+        "OutBoundPrivate1AllTcpNetworkAclEntry" : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : "0.0.0.0/0",
+                "Egress" : "true",
+                "NetworkAclId" : {"Ref" : "PrivateAppDataNetworkacl"},
+                "PortRange" : {"From" : "0", "To" : "65535"},
+                "Protocol" : "6",
+                "RuleAction" : "allow",
+                "RuleNumber" : "100"
+            }
+        },
+
+        "PrivateSubnet1" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+                "CidrBlock" : { "Ref" : "PrivateSubnet1Cidr" },
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "PrivateSubnet1" },
+                    { "Key" : "Network", "Value" : "Private" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PrivateSubnet"          },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+
+        "PrivateSubnet1RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "Private1RouteTable" },
+                "SubnetId" : { "Ref" : "PrivateSubnet1" }
+            }
+        },
+
+        "PrivateSubnet1NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : { "Ref" : "PrivateAppDataNetworkacl" },
+                "SubnetId" : { "Ref" : "PrivateSubnet1" }
+            }
+        },
+
+
+
+
+
+
+        "NatGateway2ElasticIpAddress" : {
+            "Type" : "AWS::EC2::EIP",
+            "Properties" : {
+                "Domain" : "vpc"
+            }
+        },
+
+        "NatGateway2" : {
+            "Type" : "AWS::EC2::NatGateway",
+            "Properties" : {
+                "AllocationId" : { "Fn::GetAtt" : ["NatGateway2ElasticIpAddress", "AllocationId"]},
+                "SubnetId" : { "Ref" : "PublicSubnet2"}
+            }
+        },
+
+        "Private2RouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "Private2RouteTable" },
+                    { "Key" : "Network", "Value" : "Private" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PrivateRouteTable"       },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : {"Ref" : "VPC"}
+            }
+        },
+
+        "Private2Route" : {
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "NatGatewayId" : { "Ref" : "NatGateway2" },
+                "RouteTableId" : { "Ref" : "Private2RouteTable" }
+            }
+        },
+
+        "PrivateSubnet2" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone": { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+                "CidrBlock" : { "Ref" : "PrivateSubnet2Cidr" },
+                "MapPublicIpOnLaunch" : false,
+                "Tags" : [
+                    { "Key" : "Name", "Value" : "PrivateSubnet2" },
+                    { "Key" : "Network", "Value" : "Private" },
+                    { "Key" : "environment", "Value" : { "Ref": "Environment" } },
+                    { "Key" : "product",     "Value" : "vpc"                    },
+                    { "Key" : "role",        "Value" : "PrivateSubnet"          },
+                    { "Key" : "owner",       "Value" : { "Ref": "OwnerTag" }    }
+                ],
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+
+        "PrivateSubnet2RouteTableAssociation" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "Private2RouteTable" },
+                "SubnetId" : { "Ref" : "PrivateSubnet2" }
+            }
+        },
+
+        "PrivateSubnet2NetworkAclAssociation" : {
+            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties" : {
+                "NetworkAclId" : { "Ref" : "PrivateAppDataNetworkAcl" },
+                "SubnetId" : { "Ref" : "PrivateSubnet2" }
+            }
+        },
+
         "SshBastionSecurityGroup" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
@@ -448,6 +673,23 @@
         "VpcId" : {
             "Value" : { "Ref" : "VPC" },
             "Description" : "VPC ID"
+        },
+
+        "PrivateSubnet1" : {
+            "Value" : { "Ref" : "PrivateSubnet1" },
+            "Description" : "ID of the first private subnet"
+        },
+        "PrivateSubnet1AZ" : {
+            "Value" : { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] },
+            "Description" : "AZ of the first private subnet"
+        },
+        "PrivateSubnet2" : {
+            "Value" : { "Ref" : "PrivateSubnet2" },
+            "Description" : "ID of the first private subnet"
+        },
+        "PrivateSubnet2AZ" : {
+            "Value" : { "Fn::Select": [ "1", { "Fn::GetAZs": "" } ] },
+            "Description" : "AZ of the first private subnet"
         },
 
         "PublicSubnet1" : {
