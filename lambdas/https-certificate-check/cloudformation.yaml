@@ -1,0 +1,88 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Check HTTPS certificates to see if they are expired or close to expiring.
+
+Parameters:
+
+  ExpirationBufferDays:
+    Description: |
+      Number of days buffer before HTTPS certificate expires.
+    Type: String
+    Default: 30
+  HostListUrl:
+    Description: |
+      URL to yaml document listing hosts to check.
+    Type: String
+    Default: https://gist.githubusercontent.com/joehack3r/160bf16d76a3828ad336559e31152593/raw/722ba15ae6f530407d67ec680672df02a8569a84/hosts.yaml
+  NotificationArn:
+    Description: |
+      Existing SNS to notify if/when the lambda identifies an issue exists.
+    Type: String
+
+Resources:
+
+  LambdaSendSNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        -
+          PolicyName: SendSNS
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Sid: AllowSnsActions
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref NotificationArn
+
+  LambdaCheckForExpiredCertificates:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Checks for expired or expiring HTTPS certificates
+      Handler: index.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt LambdaSendSNSRole.Arn
+      Runtime: python3.6
+      Timeout: 60
+      Environment:
+        Variables:
+          sns_topic_arn: !Ref NotificationArn
+          hosts_url: !Ref HostListUrl
+          expiration_buffer: !Ref ExpirationBufferDays
+      Code:
+        S3Bucket: "public-joehack3r-com"
+        S3Key: "lambdas/https-certificate-check/code.zip"
+
+  CloudWatchEventLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      FunctionName: !Ref LambdaCheckForExpiredCertificates
+
+  CloudwatchEventRuleForScheduling:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Cron - 12 UTC every day
+      ScheduleExpression: "cron(0 12 * * ? *)"
+      # Description: Rate - every 1 day
+      # ScheduleExpression: "rate(1 day)"
+      State: ENABLED
+      Targets:
+        -
+          Arn: !GetAtt LambdaCheckForExpiredCertificates.Arn
+          Id: CloudWatchEventRuleId
